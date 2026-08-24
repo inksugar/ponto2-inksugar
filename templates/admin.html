@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
+{% block titulo %}Gestão{% endblock %}
+{% block larga %}larga{% endblock %}
+{% block canto %}<span><a href="/ponto2/ponto" class="mini">ponto</a> · <a href="/ponto2/admin/sair" class="mini">sair</a></span>{% endblock %}
+{% block conteudo %}
+<h1>Gestão</h1>
+<p class="sub">Semana atual: {{ ini.strftime('%d/%m') }} a {{ fim.strftime('%d/%m') }}.</p>
+
+{% if abertos %}
+<div class="alerta">
+  <b>Saída não registrada:</b>
+  {% for a in abertos %}{{ a.nome.split(' ')[0] }} ({{ a.dia.strftime('%d/%m') }}){{ ", " if not loop.last }}{% endfor %}
+  — corrija em <a href="/ponto2/admin/registros?ini={{ ini }}">registros da semana</a>.
+</div>
+{% endif %}
+{% if sem_entrada and dia_semana < 5 %}
+<div class="aviso"><b>Ainda sem entrada hoje:</b> {{ sem_entrada|join(', ') }}</div>
+{% endif %}
+
+<div class="barra">
+  <a class="btn" style="width:auto" href="/ponto2/admin/registros?ini={{ ini }}">Ver registros da semana</a>
+  <a class="btn amarelo" style="width:auto;color:#0A0A0B" href="/ponto2/admin/adiantamentos">Banco de horas — adiantamentos</a>
+</div>
+
+<div class="card">
+  <h2>Equipe</h2>
+  {% for f in equipe %}
+  <form method="post" action="/ponto2/admin/funcionario" class="card" style="margin-bottom:12px;background:#0A2C40">
+    <input type="hidden" name="id" value="{{ f.id }}">
+    <input type="hidden" name="foto" id="foto{{ f.id }}">
+    <div style="display:flex;gap:14px;align-items:center;margin-bottom:12px">
+      {{ avatar(f, 'sm') }}
+      <div style="flex:1">
+        <label for="troca{{ f.id }}">Foto</label>
+        <input type="file" accept="image/*" id="troca{{ f.id }}" onchange="encolhe(this,'foto{{ f.id }}')">
+      </div>
+    </div>
+    <div class="grade">
+      <div><label>Nome</label><input name="nome" value="{{ f.nome }}" required></div>
+      <div><label>Cargo</label><input name="cargo" value="{{ f.cargo }}"></div>
+      <div>
+        <label>Híbrido</label>
+        <label class="mini quadro"><input type="checkbox" name="hibrido" {% if f.hibrido %}checked{% endif %}> pode bater ponto em home office</label>
+      </div>
+      <div>
+        <label>Situação</label>
+        <label class="mini quadro"><input type="checkbox" name="aparece_no_ponto" {% if f.aparece_no_ponto %}checked{% endif %}> aparece no ponto</label>
+        <p class="mini" style="margin:6px 0 0">Desmarcado: some da tela de seleção do /ponto, mas continua normal nos registros e no banco de horas — você lança as horas manualmente.</p>
+      </div>
+      <div>
+        <label>Arquivar</label>
+        <label class="mini quadro"><input type="checkbox" name="arquivado" {% if f.arquivado %}checked{% endif %}> arquivada</label>
+        <p class="mini" style="margin:6px 0 0">Marcado: some de tudo (ponto, registros, banco de horas, alertas). Fica só na lista de Arquivados abaixo.</p>
+      </div>
+    </div>
+    <div class="barra" style="margin:14px 0 0">
+      <button class="btn claro" style="width:auto" type="submit">Salvar</button>
+      <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes">Extrato dela</a>
+      <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}">Atalho dela</a>
+      <button class="btn claro" style="width:auto;border-color:var(--vermelho);color:var(--vermelho)"
+              type="submit" formaction="/ponto2/admin/funcionario/{{ f.id }}/excluir"
+              formnovalidate onclick="return confirm('Excluir {{ f.nome }} e todos os registros? Não dá pra desfazer.')">Excluir</button>
+    </div>
+  </form>
+  {% else %}
+  <p class="mini">Ninguém cadastrado ainda.</p>
+  {% endfor %}
+</div>
+
+{% if arquivados %}
+<div class="card">
+  <h2>Arquivados</h2>
+  <p class="mini" style="margin-top:-8px">Somem do ponto, dos registros, do banco de horas e dos alertas.</p>
+  {% for f in arquivados %}
+  <div style="display:flex;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--linha)">
+    {{ avatar(f, 'sm') }}
+    <div style="flex:1">
+      <div class="nome">{{ f.nome }}</div>
+      <div class="cargo">{{ f.cargo }}</div>
+    </div>
+    <form method="post" action="/ponto2/admin/funcionario/{{ f.id }}/desarquivar" style="margin:0">
+      <button class="btn claro" style="width:auto;margin:0" type="submit">Desarquivar</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Incluir funcionário</h2>
+  <form method="post" action="/ponto2/admin/funcionario">
+    <input type="hidden" name="foto" id="fotoNova">
+    <div class="grade">
+      <div><label for="n">Nome</label><input id="n" name="nome" required></div>
+      <div><label for="c">Cargo</label><input id="c" name="cargo" placeholder="Produção"></div>
+      <div>
+        <label>Híbrido</label>
+        <label class="mini quadro"><input type="checkbox" name="hibrido" id="hib"> pode bater ponto em home office</label>
+      </div>
+      <div><label for="p">Foto</label><input id="p" type="file" accept="image/*" onchange="encolhe(this,'fotoNova')"></div>
+    </div>
+    <button class="btn" style="margin-top:14px" type="submit">Incluir</button>
+  </form>
+  <p class="mini">Sem foto, aparece um círculo colorido com as iniciais.</p>
+</div>
+
+<script>
+function encolhe(input, destino){
+  const arq = input.files[0]; if(!arq) return;
+  const img = new Image();
+  img.onload = () => {
+    const L = 256, c = document.createElement('canvas');
+    c.width = c.height = L;
+    const lado = Math.min(img.width, img.height);
+    c.getContext('2d').drawImage(img, (img.width-lado)/2, (img.height-lado)/2, lado, lado, 0, 0, L, L);
+    document.getElementById(destino).value = c.toDataURL('image/jpeg', 0.8);
+    input.insertAdjacentHTML('afterend', '<span class="mini"> foto pronta — clique em salvar</span>');
+  };
+  img.src = URL.createObjectURL(arq);
+}
+</script>
+{% endblock %}

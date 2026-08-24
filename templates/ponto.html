@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
+{% block titulo %}Registro de horas{% endblock %}
+{% block larga %}larga{% endblock %}
+{% block canto %}<a href="/ponto2/admin" class="mini">gestão</a>{% endblock %}
+{% block conteudo %}
+<h1>Registro de horas</h1>
+<p class="sub">Toque na sua foto.</p>
+
+{% if equipe %}
+<div class="equipe">
+  {% for f in equipe %}
+  <a class="pessoa" href="/ponto2/ponto/{{ f.id }}">
+    {{ avatar(f) }}
+    <div class="nome">{{ f.nome.split(' ')[0] }}</div>
+    <div class="cargo">{{ f.cargo }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">Ninguém cadastrado ainda. Entre em <a href="/ponto2/admin">gestão</a> para incluir a equipe.</div>
+{% endif %}
+{% endblock %}

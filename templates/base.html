@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A0A0B">
+<link rel="manifest" href="{% block manifest %}/ponto2/static/manifest.json{% endblock %}">
+<link rel="apple-touch-icon" href="{% block appleicon %}/ponto2/static/icon-180.png{% endblock %}">
+<link rel="icon" href="/ponto2/static/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ponto InkSugar">
+<title>{% block titulo %}Banco de horas{% endblock %} · InkSugar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --petrol:#0A0A0B; --petrol2:#161618; --linha:#2C2C31;
+    --verde:#6EE7A0; --amarelo:#FFC531; --azul:#5CC8FF; --vermelho:#FF7A7A;
+    --claro:#F2F2F4; --fraco:#9A9AA4;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100dvh;background:var(--petrol);color:var(--claro);
+    font-family:"Space Grotesk",system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--amarelo)}
+  .wrap{max-width:560px;margin:0 auto;padding:26px 18px 44px}
+  .wrap.larga{max-width:1000px}
+  .marca{margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;gap:12px;
+    font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--fraco)}
+  .marca img{height:88px;width:auto;display:block}
+  h1{font-size:1.9rem;line-height:1.05;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:1.05rem;margin:0 0 14px}
+  .sub{color:var(--fraco);margin:0 0 22px;font-size:.95rem}
+  .card{background:var(--petrol2);border:1px solid var(--linha);border-radius:18px;padding:18px;margin-bottom:16px}
+
+  .equipe{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px}
+  .pessoa{display:block;text-decoration:none;color:inherit;text-align:center;padding:14px 6px;
+    border-radius:18px;border:1px solid transparent}
+  .pessoa:hover,.pessoa:focus-visible{background:var(--petrol2);border-color:var(--linha)}
+  .avatar{width:104px;height:104px;border-radius:50%;margin:0 auto 12px;display:grid;place-items:center;
+    font-size:2.1rem;font-weight:700;color:#0A0A0B;background:var(--azul);overflow:hidden;
+    border:3px solid var(--linha)}
+  .avatar img{width:100%;height:100%;object-fit:cover}
+  .avatar.sm{width:60px;height:60px;font-size:1.2rem;margin:0}
+  .nome{font-weight:700;font-size:1.05rem;line-height:1.2}
+  .cargo{color:var(--fraco);font-size:.82rem;margin-top:2px}
+
+  .relogio{font-size:4rem;font-weight:700;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+  .data{color:var(--fraco);font-size:.9rem;text-transform:capitalize}
+
+  .btn{display:block;width:100%;padding:20px;border:0;border-radius:16px;cursor:pointer;
+    font:inherit;font-size:1.05rem;font-weight:700;text-align:center;text-decoration:none;
+    background:var(--azul);color:#0A0A0B;margin-bottom:12px}
+  .btn.verde{background:var(--verde)}
+  .btn.amarelo{background:var(--amarelo)}
+  .btn.claro{background:transparent;border:1px solid var(--linha);color:var(--claro);font-weight:500;padding:15px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  .selo{display:inline-block;padding:6px 14px;border-radius:99px;font-size:.72rem;font-weight:700;
+    letter-spacing:.16em;text-transform:uppercase;color:#06293A}
+  .selo.entrada{background:var(--verde)} .selo.saida{background:var(--azul)}
+  .selo{color:#0A0A0B}
+  .aviso{background:#2A2100;border:1px solid var(--amarelo);color:#FFE9A8;padding:12px 14px;border-radius:12px;margin:14px 0;font-size:.9rem}
+  .alerta{background:#2A0F0F;border:1px solid var(--vermelho);padding:12px 14px;border-radius:12px;margin-bottom:16px;font-size:.9rem}
+  .erro{background:#2A0F0F;border:1px solid var(--vermelho);padding:12px 14px;border-radius:12px;margin-bottom:16px}
+
+  label{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--fraco);margin-bottom:6px}
+  input,select{width:100%;padding:13px;border-radius:12px;border:1px solid var(--linha);
+    background:#0F0F11;color:var(--claro);font:inherit;font-size:1rem}
+  input:focus,select:focus,a:focus-visible,button:focus-visible{outline:2px solid var(--amarelo);outline-offset:2px}
+  input[type=checkbox]{width:auto;transform:scale(1.35)}
+
+  .passo{display:flex;align-items:center;justify-content:center;gap:18px;margin:8px 0 4px}
+  .passo button{width:74px;height:74px;border-radius:50%;border:1px solid var(--linha);
+    background:var(--petrol);color:var(--claro);font-size:2rem;cursor:pointer;line-height:1}
+  .passo button:active{background:var(--linha)}
+  .passo .valor{font-size:3.1rem;font-weight:700;min-width:150px;text-align:center;font-variant-numeric:tabular-nums}
+  .passo .valor small{display:block;font-size:.75rem;font-weight:400;letter-spacing:.16em;color:var(--fraco);text-transform:uppercase}
+
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th{text-align:left;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--fraco);
+    padding:8px;border-bottom:1px solid var(--linha);font-weight:500}
+  td{padding:9px 8px;border-bottom:1px solid var(--linha)}
+  tr:last-child td{border-bottom:0}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .mini{font-size:.8rem;color:var(--fraco)}
+
+  .topo{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .meu-extrato{width:auto;margin:0;padding:12px 16px;font-size:.9rem}
+
+  .btn.grandao{padding:30px 20px;font-size:1.6rem;letter-spacing:.04em;line-height:1.15}
+
+  .entrada-de{text-align:center;padding:22px}
+  .entrada-de .rotulo{font-size:.85rem;letter-spacing:.2em;text-transform:uppercase;color:var(--fraco);margin-bottom:6px}
+  .hora-entrada{font-size:3.4rem;font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--verde)}
+
+  .feito{text-align:center;padding:34px 20px}
+  .feito .rotulo{font-size:.95rem;letter-spacing:.22em;text-transform:uppercase;color:var(--fraco)}
+  .feito .grande{font-size:4.6rem;font-weight:700;letter-spacing:-.04em;line-height:1;margin:10px 0 8px}
+  .feito .verde-txt{color:var(--verde)} .feito .azul-txt{color:var(--azul)}
+  .feito .recado{font-size:1.5rem;font-weight:500}
+  .feito .resumo{margin-top:16px;font-size:.95rem;color:var(--fraco)}
+  .feito .conta{margin-top:18px;font-size:.8rem;color:var(--fraco)}
+
+  .dia-linha{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
+    padding:12px 0;border-bottom:1px solid var(--linha)}
+  .dia-linha:last-child{border-bottom:0}
+  .dia-linha.adiantamento{background:rgba(255,197,49,.06)}
+  .dia-nome{font-weight:500}
+  .dia-detalhe{text-align:left}
+  .dia-total{font-weight:700;font-variant-numeric:tabular-nums}
+  .total-mes{border-top:2px solid var(--linha);border-bottom:0;margin-top:6px;padding-top:14px}
+  .total-mes .dia-total{color:var(--amarelo);font-size:1.25rem}
+  @media (max-width:520px){
+    .dia-linha{grid-template-columns:1fr auto}
+    .dia-detalhe{grid-column:1/3;order:3}
+  }
+  .quadro{text-transform:none;letter-spacing:0;display:flex;gap:8px;align-items:center;
+    margin:0;padding:12px;border:1px solid var(--linha);border-radius:12px;color:var(--claro)}
+  .escolha{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .escolha label{margin:0;cursor:pointer}
+  .escolha input{position:absolute;opacity:0;width:0;height:0}
+  .escolha span{display:block;padding:16px 8px;text-align:center;border-radius:14px;
+    border:1px solid var(--linha);font-size:1rem;text-transform:none;letter-spacing:0;color:var(--claro)}
+  .escolha input:checked+span{background:var(--amarelo);color:#0A0A0B;font-weight:700;border-color:var(--amarelo)}
+  .escolha input:focus-visible+span{outline:2px solid var(--amarelo);outline-offset:2px}
+  .resumo-topo{display:grid;gap:12px;grid-template-columns:repeat(3,1fr);text-align:center}
+  .resumo-topo .item{padding:14px 8px;border-radius:14px;background:var(--petrol);border:1px solid var(--linha)}
+  .resumo-topo .valor{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+  .resumo-topo .rotulo{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fraco);margin-top:4px}
+  @media (max-width:480px){.resumo-topo{grid-template-columns:1fr}}
+  .grade{display:grid;gap:12px;grid-template-columns:1fr 1fr}
+  .tab-reg{display:flex;flex-direction:column;gap:6px}
+  .linha-reg{display:grid;gap:8px;align-items:center;
+    grid-template-columns:88px 58px 108px 108px 92px 1fr auto;
+    padding:6px 0;border-bottom:1px solid var(--linha)}
+  .linha-reg:last-child{border-bottom:0}
+  .linha-reg .dia{font-weight:500}
+  .linha-reg input{padding:9px;font-size:.9rem}
+  .linha-reg .tt{font-weight:700}
+  .linha-reg .acoes{display:flex;gap:6px}
+  .linha-reg .acoes .btn{width:auto;margin:0;padding:8px 12px;font-size:.85rem}
+  .linha-reg .acoes .apaga{border-color:var(--vermelho);color:var(--vermelho)}
+  .cab{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--fraco)}
+  @media (max-width:760px){
+    .cab{display:none}
+    .linha-reg{grid-template-columns:1fr 1fr 1fr;padding:12px 0}
+    .linha-reg .dia{grid-column:1/3;font-weight:700}
+    .linha-reg .acoes{grid-column:1/4}
+  }
+  .barra{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .barra a{font-size:.85rem}
+  @media (max-width:700px){.grade{grid-template-columns:1fr}}
+
+  .so-print{display:none}
+  @media print{
+    .so-print{display:block}
+    body{background:#fff;color:#000}
+    .marca,.barra,.noprint{display:none!important}
+    .card{border:1px solid #999;background:#fff;break-inside:avoid;margin-bottom:14px}
+    th,td{border-color:#bbb;color:#000}
+    .mini,th{color:#444}
+    .wrap{max-width:none;padding:0}
+    a{color:#000;text-decoration:none}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .card,.relogio{animation:sobe .25s ease-out both}
+    @keyframes sobe{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body>
+<div class="wrap {% block larga %}{% endblock %}">
+  <div class="marca">
+    <a href="/ponto2/ponto"><img src="/ponto2/static/logo.png" alt="InkSugar"></a>
+    {% block canto %}{% endblock %}
+  </div>
+  {% block conteudo %}{% endblock %}
+</div>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/ponto2/sw.js', { scope: '/ponto2/' }).catch(() => {});
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
+{% block titulo %}{{ f.nome.split(' ')[0] }}{% endblock %}
+{% block manifest %}/ponto2/manifest/{{ f.id }}.json{% endblock %}
+{% block appleicon %}{% if f.foto %}/ponto2/icone/{{ f.id }}.png{% else %}/ponto2/static/icon-180.png{% endif %}{% endblock %}
+{% block canto %}<a href="/ponto2/ponto" class="mini">trocar</a>{% endblock %}
+{% block conteudo %}
+
+<div class="card topo">
+  {{ avatar(f, 'sm') }}
+  <div style="flex:1">
+    <div class="nome" style="font-size:1.2rem">{{ f.nome }}</div>
+    <div class="cargo">{{ f.cargo }}</div>
+  </div>
+  <a class="btn claro meu-extrato" href="/ponto2/ponto/{{ f.id }}/mes">Meu extrato</a>
+</div>
+
+{% if feito %}
+  <div class="card feito">
+    {% if feito == 'entrada' and aberto %}
+      <div class="rotulo">Entrada registrada</div>
+      <div class="grande verde-txt">{{ aberto.entrada.strftime('%Hh%M') }}</div>
+      <div class="recado">Deus abençoe seu dia!</div>
+    {% elif feito == 'saida' and fechado %}
+      <div class="rotulo">Saída registrada</div>
+      <div class="grande azul-txt">{{ fechado.saida.strftime('%Hh%M') }}</div>
+      <div class="recado">Bom descanso!</div>
+      <div class="resumo">
+        Entrada {{ fechado.entrada.strftime('%Hh%M') }} ·
+        almoço {{ fechado.almoco_min }} min{% if fechado.local == 'home' %} · home office{% endif %} ·
+        <b>{{ hm(fechado.minutos) }} trabalhados</b>
+      </div>
+      {% if ajustado %}<div class="aviso">A jornada passou de 7h, então o almoço ficou em 30 min.</div>{% endif %}
+    {% endif %}
+    <div class="conta">esta tela fecha em <span id="conta">10</span>s</div>
+  </div>
+
+  <script>
+    let n = 10;
+    const c = document.getElementById('conta');
+    setInterval(() => { n = Math.max(0, n - 1); c.textContent = n; }, 1000);
+    setTimeout(() => location.href = '/ponto2/ponto', 10000);
+  </script>
+
+{% elif fechado and not aberto %}
+
+  <div class="card feito">
+    <div class="rotulo">Dia encerrado</div>
+    <div class="grande azul-txt">{{ hm(fechado.minutos) }}</div>
+    <div class="recado">trabalhados hoje</div>
+    <div class="resumo">
+      Entrada {{ fechado.entrada.strftime('%Hh%M') }} ·
+      saída {{ fechado.saida.strftime('%Hh%M') }} ·
+      almoço {{ fechado.almoco_min }} min{% if fechado.local == 'home' %} · home office{% endif %}
+    </div>
+  </div>
+
+  <a class="btn claro grandao" href="/ponto2/ponto/{{ f.id }}/mes">VER MEU EXTRATO</a>
+
+  <p style="text-align:center;margin:22px 0 0">
+    <a href="#" class="mini" onclick="document.getElementById('nova').style.display='block';this.parentNode.style.display='none';return false;">
+      Preciso registrar uma nova entrada
+    </a>
+  </p>
+
+  <form method="post" action="/ponto2/ponto/{{ f.id }}/entrada" id="nova" style="display:none;margin-top:16px">
+    <button class="btn verde grandao" type="submit">REGISTRAR NOVA ENTRADA</button>
+  </form>
+
+{% else %}
+  <div class="card" style="text-align:center">
+    <div class="relogio" id="relogio">--:--</div>
+    <div class="data" id="data"></div>
+  </div>
+
+  {% if aberto %}
+    <div class="card entrada-de">
+      <div class="rotulo">Entrada às</div>
+      <div class="hora-entrada">{{ aberto.entrada.strftime('%Hh%M') }}</div>
+    </div>
+
+    <form method="post" action="/ponto2/ponto/{{ f.id }}/saida">
+      <div class="card">
+        <label style="text-align:center;margin-bottom:14px">Tempo de almoço</label>
+        <div class="passo">
+          <button type="button" onclick="ajusta(-15)" aria-label="Diminuir 15 minutos">−</button>
+          <div class="valor"><span id="mostra">30</span><small>minutos</small></div>
+          <button type="button" onclick="ajusta(15)" aria-label="Aumentar 15 minutos">+</button>
+        </div>
+        <input type="hidden" name="almoco" id="almoco" value="30">
+        {% if f.hibrido %}
+        <label class="quadro" style="margin-top:16px">
+          <input type="checkbox" name="home"> Trabalhei em home office hoje
+        </label>
+        {% endif %}
+      </div>
+      <button class="btn grandao" type="submit">REGISTRAR SAÍDA</button>
+    </form>
+  {% else %}
+    <form method="post" action="/ponto2/ponto/{{ f.id }}/entrada">
+      <button class="btn verde grandao" type="submit">REGISTRAR ENTRADA</button>
+    </form>
+  {% endif %}
+
+  <script>
+    const r = document.getElementById('relogio'), d = document.getElementById('data');
+    const fh = new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
+    const fd = new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',weekday:'long',day:'2-digit',month:'long'});
+    const tick = () => { r.textContent = fh.format(new Date()); d.textContent = fd.format(new Date()); };
+    tick(); setInterval(tick, 1000);
+
+    let v = 30;
+    const mostra = document.getElementById('mostra'), campo = document.getElementById('almoco');
+    function ajusta(n){ v = Math.max(0, Math.min(240, v + n)); mostra.textContent = v; campo.value = v; }
+  </script>
+{% endif %}
+{% endblock %}

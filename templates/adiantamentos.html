@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
+{% block titulo %}Adiantamentos{% endblock %}
+{% block larga %}larga{% endblock %}
+{% block canto %}<a href="/ponto2/admin" class="mini">gestão</a>{% endblock %}
+{% block conteudo %}
+
+<h1>Banco de horas — adiantamentos</h1>
+<p class="sub">Saldo = horas trabalhadas acumuladas − horas já abatidas. É contínuo entre meses e pode ficar negativo.</p>
+
+<div class="card">
+  <h2>Lançar adiantamento da semana</h2>
+  <p class="mini" style="margin-top:-8px">Sugestão: {{ 2400 // 60 }}h pra quem tem saldo suficiente; menos que isso, sugere só o que está disponível. Ajuste como quiser antes de lançar — deixe em branco ou zero pra não lançar nada pra alguém.</p>
+  <form method="post" action="/ponto2/admin/adiantamentos/lancar">
+    <div style="max-width:220px;margin-bottom:16px">
+      <label for="data">Data do lançamento</label>
+      <input id="data" name="data" type="date" value="{{ hoje }}" required>
+    </div>
+
+    <div class="tab-reg">
+      <div class="linha-reg cab" style="grid-template-columns:1fr 120px 140px">
+        <span>Funcionário</span><span>Saldo atual</span><span>Horas a abater</span>
+      </div>
+      {% for l in linhas %}
+      <div class="linha-reg" style="grid-template-columns:1fr 120px 140px">
+        <span style="display:flex;align-items:center;gap:10px">
+          {{ avatar(l.f, 'sm') }} {{ l.f.nome }}
+        </span>
+        <span class="num" style="{% if l.saldo < 0 %}color:var(--vermelho){% endif %}">{{ hm_sinal(l.saldo) }}</span>
+        <input name="horas_{{ l.f.id }}" type="number" min="0" step="0.25" value="{{ l.sugestao_h if l.sugestao_h else '' }}" placeholder="0">
+      </div>
+      {% else %}
+      <p class="mini">Ninguém cadastrado ainda.</p>
+      {% endfor %}
+    </div>
+
+    {% if linhas %}
+    <button class="btn verde" type="submit" style="margin-top:16px">Lançar adiantamentos</button>
+    {% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <h2>Lançamentos recentes</h2>
+  {% if recentes %}
+  <div class="tab-reg">
+    <div class="linha-reg cab" style="grid-template-columns:1fr 130px 90px 1fr auto">
+      <span>Funcionário</span><span>Data</span><span>Horas</span><span>Obs.</span><span></span>
+    </div>
+    {% for a in recentes %}
+    <form method="post" action="/ponto2/admin/adiantamento/{{ a.id }}" class="linha-reg" style="grid-template-columns:1fr 130px 90px 1fr auto">
+      <span class="dia">{{ a.f_nome }}</span>
+      <input name="data" type="date" value="{{ a.data }}">
+      <input name="horas" type="number" min="0" step="0.25" value="{{ (a.minutos / 60) | round(2) }}">
+      <input name="obs" value="{{ a.obs or '' }}" placeholder="opcional">
+      <span class="acoes">
+        <button class="btn claro" type="submit">Salvar</button>
+        <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/adiantamento/{{ a.id }}/excluir"
+                onclick="return confirm('Excluir este lançamento de {{ a.f_nome }}?')">Excluir</button>
+      </span>
+    </form>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="mini">Nenhum adiantamento lançado ainda.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

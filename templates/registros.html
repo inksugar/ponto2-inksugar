@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block titulo %}Registros{% endblock %}
+{% block larga %}larga{% endblock %}
+{% block canto %}<a href="/ponto2/admin" class="mini">gestão</a>{% endblock %}
+{% block conteudo %}
+
+<style>
+  .bloco > summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between;
+                     flex-wrap:wrap; gap:8px; align-items:baseline; margin-bottom:4px; }
+  .bloco > summary::-webkit-details-marker { display:none; }
+  .bloco > summary .seta { transition:transform .15s; opacity:.6; margin-right:8px; display:inline-block; }
+  .bloco[open] > summary .seta { transform:rotate(90deg); }
+  .bloco[open] > summary { margin-bottom:12px; }
+  .bloco .corpo { padding-top:4px; }
+</style>
+
+<div class="barra noprint">
+  <a class="btn claro" style="width:auto" href="/ponto2/admin/registros?ini={{ anterior }}{% if filtro %}&f={{ filtro }}{% endif %}">← semana anterior</a>
+  <a class="btn claro" style="width:auto" href="/ponto2/admin/registros?ini={{ proxima }}{% if filtro %}&f={{ filtro }}{% endif %}">próxima semana →</a>
+  <button class="btn claro" style="width:auto" onclick="window.print()">Imprimir</button>
+  <button class="btn claro" style="width:auto" onclick="todos(false)">Encolher todos</button>
+  <button class="btn claro" style="width:auto" onclick="todos(true)">Expandir todos</button>
+  {% if filtro %}<a class="btn claro" style="width:auto" href="/ponto2/admin/registros?ini={{ ini }}">ver todos</a>{% endif %}
+</div>
+
+<h1>Registros de ponto</h1>
+<p class="sub">Semana de {{ ini.strftime('%d/%m/%Y') }} a {{ fim.strftime('%d/%m/%Y') }} — corrija entrada, saída e almoço na mão quando precisar.</p>
+
+{% for b in blocos %}
+<details class="card bloco" data-pessoa="{{ b.f.id }}" open>
+  <summary>
+    <div>
+      <div class="nome" style="font-size:1.15rem"><span class="seta">▶</span>{{ b.f.nome }}</div>
+      <div class="cargo" style="padding-left:22px">{{ b.f.cargo }}</div>
+    </div>
+    <div class="num">
+      <div>Total da semana: <b>{{ hm(b.total) }}</b></div>
+    </div>
+  </summary>
+
+  <div class="corpo">
+    <form method="post" action="/ponto2/admin/registros/salvar">
+      <input type="hidden" name="voltar" value="/ponto2/admin/registros?ini={{ ini }}{% if filtro %}&f={{ filtro }}{% endif %}">
+      <input type="hidden" name="funcionario_id" value="{{ b.f.id }}">
+      <input type="hidden" name="ini" value="{{ ini }}">
+      <input type="hidden" name="n" value="{{ b.linhas|length }}">
+
+      <div class="tab-reg">
+        <div class="linha-reg cab noprint-cab">
+          <span>Dia</span><span>Data</span><span>Entrada</span><span>Saída</span>
+          <span>Almoço</span>{% if b.f.hibrido %}<span class="noprint">Local</span>{% endif %}<span>Trabalhado</span><span class="noprint"></span>
+        </div>
+        {% for l in b.linhas %}
+        <div class="linha-reg">
+          <input type="hidden" name="dia_{{ loop.index0 }}" value="{{ l.data }}">
+          {% if l.reg %}<input type="hidden" name="id_{{ loop.index0 }}" value="{{ l.reg.id }}">{% endif %}
+          <span class="dia">{{ l.dia }}</span>
+          <span class="mini">{{ l.data.strftime('%d/%m') }}</span>
+          <input name="entrada_{{ loop.index0 }}" type="time" value="{{ l.reg.entrada.strftime('%H:%M') if l.reg and l.reg.entrada }}">
+          <input name="saida_{{ loop.index0 }}" type="time" value="{{ l.reg.saida.strftime('%H:%M') if l.reg and l.reg.saida }}">
+          <input name="almoco_{{ loop.index0 }}" type="number" min="0" max="240" step="5" value="{{ l.reg.almoco_min if l.reg else 0 }}">
+          {% if b.f.hibrido %}
+          <select name="local_{{ loop.index0 }}" class="noprint">
+            <option value="interno" {% if not l.reg or l.reg.local != 'home' %}selected{% endif %}>Interno</option>
+            <option value="home" {% if l.reg and l.reg.local == 'home' %}selected{% endif %}>Home</option>
+          </select>
+          {% endif %}
+          <span class="num tt" {% if l.reg and l.reg.entrada and not l.reg.saida %}style="color:var(--vermelho)"{% endif %}>
+            {% if l.reg and l.reg.entrada and not l.reg.saida %}sem saída{% else %}{{ hm(l.reg.minutos) if l.reg else '—' }}{% endif %}
+          </span>
+          <span class="acoes noprint"></span>
+        </div>
+        {% endfor %}
+      </div>
+
+      <button class="btn verde noprint" type="submit" style="margin-top:14px">Salvar a semana de {{ b.f.nome.split(' ')[0] }}</button>
+    </form>
+  </div>
+</details>
+{% endfor %}
+
+<script>
+  const blocos = () => Array.from(document.querySelectorAll('details.bloco'));
+
+  blocos().forEach(d => {
+    const chave = 'bloco-' + d.dataset.pessoa;
+    const salvo = sessionStorage.getItem(chave);
+    if (salvo !== null) d.open = (salvo === '1');
+    d.addEventListener('toggle', () => sessionStorage.setItem(chave, d.open ? '1' : '0'));
+  });
+
+  function todos(abrir) {
+    blocos().forEach(d => { d.open = abrir; sessionStorage.setItem('bloco-' + d.dataset.pessoa, abrir ? '1' : '0'); });
+  }
+
+  let antes = [];
+  window.addEventListener('beforeprint', () => {
+    antes = blocos().map(d => d.open);
+    blocos().forEach(d => d.open = true);
+  });
+  window.addEventListener('afterprint', () => {
+    blocos().forEach((d, i) => d.open = antes[i]);
+  });
+</script>
+{% endblock %}

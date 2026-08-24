@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
+{% block titulo %}Meu extrato{% endblock %}
+{% block canto %}<a href="/ponto2/ponto/{{ f.id }}" class="mini">voltar</a>{% endblock %}
+{% block conteudo %}
+
+<div class="card topo">
+  {{ avatar(f, 'sm') }}
+  <div>
+    <div class="nome" style="font-size:1.2rem">{{ f.nome }}</div>
+    <div class="cargo">{{ nome_mes }}{% if atual %} · mês atual{% endif %}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="resumo-topo">
+    <div class="item">
+      <div class="valor">{{ hm(trabalhadas) }}</div>
+      <div class="rotulo">Trabalhadas no mês</div>
+    </div>
+    <div class="item">
+      <div class="valor">{{ hm(recebidas) }}</div>
+      <div class="rotulo">Já recebidas</div>
+    </div>
+    <div class="item">
+      <div class="valor" style="{% if a_receber < 0 %}color:var(--vermelho){% else %}color:var(--amarelo){% endif %}">{{ hm_sinal(a_receber) }}</div>
+      <div class="rotulo">Saldo a receber</div>
+    </div>
+  </div>
+</div>
+
+<div class="barra">
+  <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ ant_ano }}&mes={{ ant_mes }}">← mês anterior</a>
+  {% if not atual %}
+  <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ prox_ano }}&mes={{ prox_mes }}">próximo mês →</a>
+  {% endif %}
+</div>
+
+<div class="card">
+  {% for e in eventos %}
+    {% if e.tipo == 'trabalho' %}
+    <div class="dia-linha">
+      <div>
+        <div class="dia-nome">{{ e.dia_semana }}</div>
+        <div class="mini">{{ e.data.strftime('%d/%m') }}</div>
+      </div>
+      <div class="mini dia-detalhe">
+        {% if e.reg.entrada %}{{ e.reg.entrada.strftime('%Hh%M') }}{% endif %}
+        {% if e.reg.saida %}às {{ e.reg.saida.strftime('%Hh%M') }}{% endif %}
+        {% if e.reg.almoco_min %}· almoço {{ e.reg.almoco_min }}min{% endif %}
+        {% if e.reg.local == 'home' %}· home{% endif %}
+      </div>
+      <div class="dia-total">
+        {% if e.reg.entrada and not e.reg.saida %}<span style="color:var(--amarelo)">em aberto</span>
+        {% else %}{{ hm(e.reg.minutos) }}{% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="dia-linha adiantamento">
+      <div>
+        <div class="dia-nome">Adiantamento</div>
+        <div class="mini">{{ e.data.strftime('%d/%m') }}</div>
+      </div>
+      <div class="mini dia-detalhe">horas já pagas, abatidas do saldo</div>
+      <div class="dia-total" style="color:var(--amarelo)">−{{ hm(e.reg.minutos) }}</div>
+    </div>
+    {% endif %}
+  {% else %}
+  <p class="mini" style="text-align:center;margin:6px 0">Nenhum registro neste mês.</p>
+  {% endfor %}
+
+  <div class="dia-linha total-mes">
+    <div class="dia-nome">Saldo do mês (trabalhado − recebido)</div>
+    <div></div>
+    <div class="dia-total">{{ hm_sinal(trabalhadas - recebidas) }}</div>
+  </div>
+</div>
+
+<a class="btn claro" href="/ponto2/ponto/{{ f.id }}">Voltar</a>
+{% endblock %}

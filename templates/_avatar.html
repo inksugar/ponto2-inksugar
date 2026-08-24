@@ -1,0 +1,5 @@
+{% macro avatar(f, classe='') %}
+<div class="avatar {{ classe }}" style="background:{{ ['#29B6F6','#8FD14F','#FFC531','#FF8FB1','#B79CFF','#5AD6C0'][f.id % 6] }}">
+  {% if f.foto %}<img src="{{ f.foto }}" alt="">{% else %}{{ iniciais(f.nome) }}{% endif %}
+</div>
+{% endmacro %}

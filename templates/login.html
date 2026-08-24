@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block titulo %}Gestão{% endblock %}
+{% block conteudo %}
+<h1>Área da gestão</h1>
+<p class="sub">Cadastro da equipe, registros e banco de horas.</p>
+{% if erro %}<div class="erro">{{ erro }}</div>{% endif %}
+<form method="post">
+  <div class="card">
+    <label for="senha">Senha</label>
+    <input id="senha" name="senha" type="password" required autofocus>
+  </div>
+  <button class="btn" type="submit">Entrar</button>
+</form>
+<a class="btn claro" href="/ponto2/ponto">Voltar para o ponto</a>
+{% endblock %}
