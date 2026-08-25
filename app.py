@@ -14,6 +14,8 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 
 TZ = ZoneInfo("America/Sao_Paulo")
 DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
+MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 ALMOCO_PADRAO = 30
 JORNADA_LIMITE = 420  # 7h em minutos
 ADIANTAMENTO_PADRAO_MIN = 2400  # 40h
@@ -290,7 +292,7 @@ def mes_pessoa(fid):
     ant_ano, ant_mes = (ano - 1, 12) if mes == 1 else (ano, mes - 1)
     prox_ano, prox_mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
     atual = (ano == hj.year and mes == hj.month)
-    nome_mes = ini.strftime("%B de %Y").capitalize()
+    nome_mes = f"{MESES[mes - 1]} de {ano}"
 
     return render_template("mes.html", f=f, eventos=eventos, ini=ini, fim=fim, nome_mes=nome_mes,
                            trabalhadas=trabalhadas, recebidas=recebidas, a_receber=a_receber,
@@ -494,7 +496,7 @@ def registros():
     ant_ano, ant_mes = (ano - 1, 12) if mes == 1 else (ano, mes - 1)
     prox_ano, prox_mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
     atual = (ano == hj.year and mes == hj.month)
-    nome_mes = ini.strftime("%B de %Y").capitalize()
+    nome_mes = f"{MESES[mes - 1]} de {ano}"
     return render_template("registros.html", blocos=blocos, ini=ini, fim=fim, nome_mes=nome_mes,
                            ano=ano, mes=mes, atual=atual,
                            ant_ano=ant_ano, ant_mes=ant_mes, prox_ano=prox_ano, prox_mes=prox_mes,
