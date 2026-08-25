@@ -268,26 +268,8 @@ def mes_pessoa(fid):
         if not f:
             return redirect(url_for("ponto"))
 
-        cur.execute(
-            "SELECT * FROM pontos WHERE funcionario_id=%s AND dia BETWEEN %s AND %s ORDER BY dia, entrada",
-            (fid, ini, fim),
-        )
-        pontos_mes = cur.fetchall()
-        cur.execute(
-            "SELECT * FROM adiantamentos WHERE funcionario_id=%s AND data BETWEEN %s AND %s ORDER BY data",
-            (fid, ini, fim),
-        )
-        adiant_mes = cur.fetchall()
-
-        trabalhadas = sum(p["minutos"] or 0 for p in pontos_mes)
-        recebidas = sum(a["minutos"] for a in adiant_mes)
+        eventos, trabalhadas, recebidas = extrato_do_mes(cur, fid, ini, fim)
         a_receber = saldo_ate(cur, fid, min(fim, hj))
-
-    eventos = [{"tipo": "trabalho", "data": p["dia"], "dia_semana": DIAS[p["dia"].weekday()], "reg": p}
-               for p in pontos_mes]
-    eventos += [{"tipo": "adiantamento", "data": a["data"], "dia_semana": DIAS[a["data"].weekday()], "reg": a}
-                for a in adiant_mes]
-    eventos.sort(key=lambda e: (e["data"], 0 if e["tipo"] == "trabalho" else 1))
 
     ant_ano, ant_mes = (ano - 1, 12) if mes == 1 else (ano, mes - 1)
     prox_ano, prox_mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
@@ -465,7 +447,7 @@ def periodo_do_funcionario(cur, fid, ini, fim):
         for r in regs.get(d, [None]):
             if r and r["minutos"]:
                 total += r["minutos"]
-            linhas.append({"dia": DIAS[d.weekday()], "data": d, "reg": r})
+            linhas.append({"dia": DIAS[d.weekday()], "data": d, "reg": r, "idx": len(linhas)})
         d += timedelta(days=1)
     return linhas, total
 
@@ -492,7 +474,11 @@ def registros():
         blocos = []
         for f in equipe:
             linhas, total = periodo_do_funcionario(cur, f["id"], ini, fim)
-            blocos.append({"f": f, "linhas": linhas, "total": total})
+            # duas colunas lado a lado (quinzenas), pra não ficar um telão vertical
+            primeira = [l for l in linhas if l["data"].day <= 15]
+            segunda = [l for l in linhas if l["data"].day > 15]
+            blocos.append({"f": f, "primeira": primeira, "segunda": segunda,
+                           "total": total, "n": len(linhas)})
     ant_ano, ant_mes = (ano - 1, 12) if mes == 1 else (ano, mes - 1)
     prox_ano, prox_mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
     atual = (ano == hj.year and mes == hj.month)
@@ -551,10 +537,35 @@ def salvar_registros_pessoa():
 
 # --------- Banco de horas: adiantamentos ---------
 
+def extrato_do_mes(cur, fid, ini, fim):
+    """Trabalho + adiantamentos de um funcionário num período, intercalados
+    cronologicamente — mesma lógica usada no extrato mensal dela (/ponto/<id>/mes)
+    e reaproveitada aqui pro extrato por pessoa da tela de adiantamentos."""
+    cur.execute(
+        "SELECT * FROM pontos WHERE funcionario_id=%s AND dia BETWEEN %s AND %s ORDER BY dia, entrada",
+        (fid, ini, fim),
+    )
+    pontos_periodo = cur.fetchall()
+    cur.execute(
+        "SELECT * FROM adiantamentos WHERE funcionario_id=%s AND data BETWEEN %s AND %s ORDER BY data",
+        (fid, ini, fim),
+    )
+    adiant_periodo = cur.fetchall()
+    trabalhadas = sum(p["minutos"] or 0 for p in pontos_periodo)
+    recebidas = sum(a["minutos"] for a in adiant_periodo)
+    eventos = [{"tipo": "trabalho", "data": p["dia"], "dia_semana": DIAS[p["dia"].weekday()], "reg": p}
+               for p in pontos_periodo]
+    eventos += [{"tipo": "adiantamento", "data": a["data"], "dia_semana": DIAS[a["data"].weekday()], "reg": a}
+                for a in adiant_periodo]
+    eventos.sort(key=lambda e: (e["data"], 0 if e["tipo"] == "trabalho" else 1))
+    return eventos, trabalhadas, recebidas
+
+
 @app.route("/ponto2/admin/adiantamentos")
 @admin_only
 def adiantamentos():
     hj = hoje()
+    ini_mes, fim_mes = mes_de(hj.year, hj.month)
     with db() as conn, conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         cur.execute("SELECT * FROM funcionarios WHERE NOT arquivado ORDER BY nome")
         equipe = cur.fetchall()
@@ -562,15 +573,12 @@ def adiantamentos():
         for f in equipe:
             saldo = saldo_ate(cur, f["id"], hj)
             sugestao = min(saldo, ADIANTAMENTO_PADRAO_MIN) if saldo > 0 else 0
+            eventos, trabalhadas, recebidas = extrato_do_mes(cur, f["id"], ini_mes, fim_mes)
             linhas.append({"f": f, "saldo": saldo, "sugestao": sugestao,
-                           "sugestao_h": round(sugestao / 60, 2)})
-        cur.execute("""
-            SELECT a.*, f.nome AS f_nome FROM adiantamentos a
-            JOIN funcionarios f ON f.id = a.funcionario_id
-            ORDER BY a.data DESC, a.criado_em DESC LIMIT 80
-        """)
-        recentes = cur.fetchall()
-    return render_template("adiantamentos.html", linhas=linhas, recentes=recentes, hoje=hj)
+                           "sugestao_h": round(sugestao / 60, 2),
+                           "eventos": eventos, "trabalhadas": trabalhadas, "recebidas": recebidas})
+    nome_mes = f"{MESES[hj.month - 1]} de {hj.year}"
+    return render_template("adiantamentos.html", linhas=linhas, hoje=hj, nome_mes=nome_mes)
 
 
 @app.route("/ponto2/admin/adiantamentos/lancar", methods=["POST"])
