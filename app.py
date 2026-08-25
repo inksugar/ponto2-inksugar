@@ -446,7 +446,10 @@ def desarquivar_funcionario(fid):
 
 # --------- Registros (correção manual de entrada/saída) ---------
 
-def semana_do_funcionario(cur, fid, ini, fim):
+def periodo_do_funcionario(cur, fid, ini, fim):
+    """Todos os dias de ini a fim (inclusive), com o(s) registro(s) daquele dia
+    ou None quando não bateu ponto — usado tanto pra grade semanal quanto
+    mensal de edição manual."""
     cur.execute("""
         SELECT * FROM pontos WHERE funcionario_id=%s AND dia BETWEEN %s AND %s
         ORDER BY dia, entrada
@@ -455,20 +458,27 @@ def semana_do_funcionario(cur, fid, ini, fim):
     for r in cur.fetchall():
         regs.setdefault(r["dia"], []).append(r)
     linhas, total = [], 0
-    for i in range(7):
-        d = ini + timedelta(days=i)
+    d = ini
+    while d <= fim:
         for r in regs.get(d, [None]):
             if r and r["minutos"]:
                 total += r["minutos"]
-            linhas.append({"dia": DIAS[i], "data": d, "reg": r})
+            linhas.append({"dia": DIAS[d.weekday()], "data": d, "reg": r})
+        d += timedelta(days=1)
     return linhas, total
 
 
 @app.route("/ponto2/admin/registros")
 @admin_only
 def registros():
-    ini = date.fromisoformat(request.args.get("ini") or semana_de(hoje())[0].isoformat())
-    fim = ini + timedelta(days=6)
+    hj = hoje()
+    try:
+        ano = int(request.args.get("ano") or hj.year)
+        mes = int(request.args.get("mes") or hj.month)
+        date(ano, mes, 1)
+    except (TypeError, ValueError):
+        ano, mes = hj.year, hj.month
+    ini, fim = mes_de(ano, mes)
     fid = request.args.get("f")
     with db() as conn, conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         if fid:
@@ -479,10 +489,15 @@ def registros():
             equipe = cur.fetchall()
         blocos = []
         for f in equipe:
-            linhas, total = semana_do_funcionario(cur, f["id"], ini, fim)
+            linhas, total = periodo_do_funcionario(cur, f["id"], ini, fim)
             blocos.append({"f": f, "linhas": linhas, "total": total})
-    return render_template("registros.html", blocos=blocos, ini=ini, fim=fim,
-                           anterior=ini - timedelta(days=7), proxima=ini + timedelta(days=7),
+    ant_ano, ant_mes = (ano - 1, 12) if mes == 1 else (ano, mes - 1)
+    prox_ano, prox_mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
+    atual = (ano == hj.year and mes == hj.month)
+    nome_mes = ini.strftime("%B de %Y").capitalize()
+    return render_template("registros.html", blocos=blocos, ini=ini, fim=fim, nome_mes=nome_mes,
+                           ano=ano, mes=mes, atual=atual,
+                           ant_ano=ant_ano, ant_mes=ant_mes, prox_ano=prox_ano, prox_mes=prox_mes,
                            filtro=fid)
 
 
@@ -490,9 +505,14 @@ def registros():
 @admin_only
 def salvar_registros_pessoa():
     fid = request.form["funcionario_id"]
-    ini = date.fromisoformat(request.form["ini"])
+    hj = hoje()
     try:
-        n = max(0, min(50, int(request.form.get("n") or 0)))
+        ano = int(request.form.get("ano") or hj.year)
+        mes = int(request.form.get("mes") or hj.month)
+    except ValueError:
+        ano, mes = hj.year, hj.month
+    try:
+        n = max(0, min(60, int(request.form.get("n") or 0)))
     except ValueError:
         n = 0
     with db() as conn, conn.cursor() as cur:
@@ -524,7 +544,7 @@ def salvar_registros_pessoa():
                 cur.execute("""INSERT INTO pontos (funcionario_id,dia,entrada,saida,almoco_min,minutos,local)
                                VALUES (%s,%s,%s,%s,%s,%s,%s)""",
                             (fid, d, entrada, saida, almoco, minutos, local))
-    return redirect(request.form.get("voltar") or url_for("registros", ini=ini.isoformat()))
+    return redirect(request.form.get("voltar") or url_for("registros", ano=ano, mes=mes))
 
 
 # --------- Banco de horas: adiantamentos ---------

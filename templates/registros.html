@@ -10,52 +10,70 @@
   .bloco > summary::-webkit-details-marker { display:none; }
   .bloco > summary .seta { transition:transform .15s; opacity:.6; margin-right:8px; display:inline-block; }
   .bloco[open] > summary .seta { transform:rotate(90deg); }
-  .bloco[open] > summary { margin-bottom:12px; }
-  .bloco .corpo { padding-top:4px; }
+  .bloco[open] > summary { margin-bottom:10px; }
+  .bloco .corpo { padding-top:2px; }
+
+  /* mês inteiro tem até 31 linhas por pessoa — precisa ser bem mais compacto que a grade semanal */
+  .linha-reg{
+    grid-template-columns:96px 76px 76px 64px 1fr auto;
+    gap:6px;padding:2px 0;font-size:.85rem;
+  }
+  .linha-reg.tem-local{grid-template-columns:96px 76px 76px 64px 90px 1fr auto}
+  .linha-reg input,.linha-reg select{padding:5px 6px;font-size:.82rem;border-radius:8px}
+  .linha-reg .dia{font-size:.82rem}
+  .cab{padding:4px 0 6px}
+  @media (max-width:760px){
+    .linha-reg,.linha-reg.tem-local{grid-template-columns:1fr 1fr 1fr;padding:6px 0}
+    .linha-reg .dia{grid-column:1/3;font-weight:600;font-size:.85rem}
+    .linha-reg .acoes{grid-column:1/4}
+  }
 </style>
 
 <div class="barra noprint">
-  <a class="btn claro" style="width:auto" href="/ponto2/admin/registros?ini={{ anterior }}{% if filtro %}&f={{ filtro }}{% endif %}">← semana anterior</a>
-  <a class="btn claro" style="width:auto" href="/ponto2/admin/registros?ini={{ proxima }}{% if filtro %}&f={{ filtro }}{% endif %}">próxima semana →</a>
+  <a class="btn claro" style="width:auto" href="/ponto2/admin/registros?ano={{ ant_ano }}&mes={{ ant_mes }}{% if filtro %}&f={{ filtro }}{% endif %}">← Mês anterior</a>
+  {% if not atual %}
+  <a class="btn claro" style="width:auto" href="/ponto2/admin/registros{% if filtro %}?f={{ filtro }}{% endif %}">Mês atual</a>
+  <a class="btn claro" style="width:auto" href="/ponto2/admin/registros?ano={{ prox_ano }}&mes={{ prox_mes }}{% if filtro %}&f={{ filtro }}{% endif %}">Próximo mês →</a>
+  {% endif %}
   <button class="btn claro" style="width:auto" onclick="window.print()">Imprimir</button>
   <button class="btn claro" style="width:auto" onclick="todos(false)">Encolher todos</button>
   <button class="btn claro" style="width:auto" onclick="todos(true)">Expandir todos</button>
-  {% if filtro %}<a class="btn claro" style="width:auto" href="/ponto2/admin/registros?ini={{ ini }}">ver todos</a>{% endif %}
+  {% if filtro %}<a class="btn claro" style="width:auto" href="/ponto2/admin/registros?ano={{ ano }}&mes={{ mes }}">ver todos</a>{% endif %}
 </div>
 
 <h1>Registros de ponto</h1>
-<p class="sub">Semana de {{ ini.strftime('%d/%m/%Y') }} a {{ fim.strftime('%d/%m/%Y') }} — corrija entrada, saída e almoço na mão quando precisar.</p>
+<p class="sub">{{ nome_mes }}{% if atual %} · mês atual{% endif %} — corrija entrada, saída e almoço na mão quando precisar.</p>
 
 {% for b in blocos %}
-<details class="card bloco" data-pessoa="{{ b.f.id }}" open>
+<details class="card bloco" data-pessoa="{{ b.f.id }}">
   <summary>
     <div>
       <div class="nome" style="font-size:1.15rem"><span class="seta">▶</span>{{ b.f.nome }}</div>
       <div class="cargo" style="padding-left:22px">{{ b.f.cargo }}</div>
     </div>
     <div class="num">
-      <div>Total da semana: <b>{{ hm(b.total) }}</b></div>
+      <div>Total do mês: <b>{{ hm(b.total) }}</b></div>
     </div>
   </summary>
 
   <div class="corpo">
     <form method="post" action="/ponto2/admin/registros/salvar">
-      <input type="hidden" name="voltar" value="/ponto2/admin/registros?ini={{ ini }}{% if filtro %}&f={{ filtro }}{% endif %}">
+      <input type="hidden" name="voltar" value="/ponto2/admin/registros?ano={{ ano }}&mes={{ mes }}{% if filtro %}&f={{ filtro }}{% endif %}">
       <input type="hidden" name="funcionario_id" value="{{ b.f.id }}">
-      <input type="hidden" name="ini" value="{{ ini }}">
+      <input type="hidden" name="ano" value="{{ ano }}">
+      <input type="hidden" name="mes" value="{{ mes }}">
       <input type="hidden" name="n" value="{{ b.linhas|length }}">
 
       <div class="tab-reg">
-        <div class="linha-reg cab noprint-cab">
-          <span>Dia</span><span>Data</span><span>Entrada</span><span>Saída</span>
+        <div class="linha-reg cab noprint-cab {% if b.f.hibrido %}tem-local{% endif %}">
+          <span>Dia</span><span>Entrada</span><span>Saída</span>
           <span>Almoço</span>{% if b.f.hibrido %}<span class="noprint">Local</span>{% endif %}<span>Trabalhado</span><span class="noprint"></span>
         </div>
         {% for l in b.linhas %}
-        <div class="linha-reg">
+        <div class="linha-reg {% if b.f.hibrido %}tem-local{% endif %}">
           <input type="hidden" name="dia_{{ loop.index0 }}" value="{{ l.data }}">
           {% if l.reg %}<input type="hidden" name="id_{{ loop.index0 }}" value="{{ l.reg.id }}">{% endif %}
-          <span class="dia">{{ l.dia }}</span>
-          <span class="mini">{{ l.data.strftime('%d/%m') }}</span>
+          <span class="dia">{{ l.dia[:3] }} {{ l.data.strftime('%d/%m') }}</span>
           <input name="entrada_{{ loop.index0 }}" type="time" value="{{ l.reg.entrada.strftime('%H:%M') if l.reg and l.reg.entrada }}">
           <input name="saida_{{ loop.index0 }}" type="time" value="{{ l.reg.saida.strftime('%H:%M') if l.reg and l.reg.saida }}">
           <input name="almoco_{{ loop.index0 }}" type="number" min="0" max="240" step="5" value="{{ l.reg.almoco_min if l.reg else 0 }}">
@@ -73,7 +91,7 @@
         {% endfor %}
       </div>
 
-      <button class="btn verde noprint" type="submit" style="margin-top:14px">Salvar a semana de {{ b.f.nome.split(' ')[0] }}</button>
+      <button class="btn verde noprint" type="submit" style="margin-top:12px">Salvar o mês de {{ b.f.nome.split(' ')[0] }}</button>
     </form>
   </div>
 </details>

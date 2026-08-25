@@ -11,7 +11,7 @@
 <div class="alerta">
   <b>Saída não registrada:</b>
   {% for a in abertos %}{{ a.nome.split(' ')[0] }} ({{ a.dia.strftime('%d/%m') }}){{ ", " if not loop.last }}{% endfor %}
-  — corrija em <a href="/ponto2/admin/registros?ini={{ ini }}">registros da semana</a>.
+  — corrija em <a href="/ponto2/admin/registros">registros do mês</a>.
 </div>
 {% endif %}
 {% if sem_entrada and dia_semana < 5 %}
@@ -19,7 +19,7 @@
 {% endif %}
 
 <div class="barra">
-  <a class="btn" style="width:auto" href="/ponto2/admin/registros?ini={{ ini }}">Ver registros da semana</a>
+  <a class="btn" style="width:auto" href="/ponto2/admin/registros">Ver registros do mês</a>
   <a class="btn amarelo" style="width:auto;color:#0A0A0B" href="/ponto2/admin/adiantamentos">Banco de horas — adiantamentos</a>
 </div>
 
