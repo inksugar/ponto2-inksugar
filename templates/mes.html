@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_avatar.html" import avatar %}
 {% block titulo %}Meu extrato{% endblock %}
+{% block larga %}larga{% endblock %}
 {% block canto %}<a href="/ponto2/ponto/{{ f.id }}" class="mini">voltar</a>{% endblock %}
 {% block conteudo %}
 
@@ -30,50 +31,45 @@
 </div>
 
 <div class="barra">
-  <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ ant_ano }}&mes={{ ant_mes }}">← mês anterior</a>
+  <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ ant_ano }}&mes={{ ant_mes }}">← Mês anterior</a>
   {% if not atual %}
-  <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ prox_ano }}&mes={{ prox_mes }}">próximo mês →</a>
+  <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes">Mês atual</a>
+  <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ prox_ano }}&mes={{ prox_mes }}">Próximo mês →</a>
   {% endif %}
 </div>
 
-<div class="card">
-  {% for e in eventos %}
-    {% if e.tipo == 'trabalho' %}
-    <div class="dia-linha">
-      <div>
-        <div class="dia-nome">{{ e.dia_semana }}</div>
-        <div class="mini">{{ e.data.strftime('%d/%m') }}</div>
-      </div>
-      <div class="mini dia-detalhe">
-        {% if e.reg.entrada %}{{ e.reg.entrada.strftime('%Hh%M') }}{% endif %}
-        {% if e.reg.saida %}às {{ e.reg.saida.strftime('%Hh%M') }}{% endif %}
-        {% if e.reg.almoco_min %}· almoço {{ e.reg.almoco_min }}min{% endif %}
-        {% if e.reg.local == 'home' %}· home{% endif %}
-      </div>
-      <div class="dia-total">
-        {% if e.reg.entrada and not e.reg.saida %}<span style="color:var(--amarelo)">em aberto</span>
-        {% else %}{{ hm(e.reg.minutos) }}{% endif %}
-      </div>
-    </div>
+<div class="card" style="overflow-x:auto">
+  <table>
+    <tr>
+      <th>Dia</th><th>Entrada</th><th>Saída</th><th>Almoço</th><th class="num">Total</th>
+    </tr>
+    {% for e in eventos %}
+      {% if e.tipo == 'trabalho' %}
+      <tr>
+        <td>{{ e.dia_semana[:3] }} {{ e.data.strftime('%d/%m') }}{% if e.reg.local == 'home' %} <span class="mini">· home</span>{% endif %}</td>
+        <td>{{ e.reg.entrada.strftime('%H:%M') if e.reg.entrada else '—' }}</td>
+        <td>{{ e.reg.saida.strftime('%H:%M') if e.reg.saida else '—' }}</td>
+        <td>{{ e.reg.almoco_min }}min</td>
+        <td class="num">
+          {% if e.reg.entrada and not e.reg.saida %}<span style="color:var(--amarelo)">em aberto</span>
+          {% else %}{{ hm(e.reg.minutos) }}{% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr style="background:rgba(255,197,49,.08)">
+        <td colspan="4"><b>Adiantamento</b> · {{ e.dia_semana[:3] }} {{ e.data.strftime('%d/%m') }}
+          <span class="mini">horas já pagas, abatidas do saldo</span></td>
+        <td class="num" style="color:var(--amarelo)">−{{ hm(e.reg.minutos) }}</td>
+      </tr>
+      {% endif %}
     {% else %}
-    <div class="dia-linha adiantamento">
-      <div>
-        <div class="dia-nome">Adiantamento</div>
-        <div class="mini">{{ e.data.strftime('%d/%m') }}</div>
-      </div>
-      <div class="mini dia-detalhe">horas já pagas, abatidas do saldo</div>
-      <div class="dia-total" style="color:var(--amarelo)">−{{ hm(e.reg.minutos) }}</div>
-    </div>
-    {% endif %}
-  {% else %}
-  <p class="mini" style="text-align:center;margin:6px 0">Nenhum registro neste mês.</p>
-  {% endfor %}
-
-  <div class="dia-linha total-mes">
-    <div class="dia-nome">Saldo do mês (trabalhado − recebido)</div>
-    <div></div>
-    <div class="dia-total">{{ hm_sinal(trabalhadas - recebidas) }}</div>
-  </div>
+    <tr><td colspan="5" class="mini" style="text-align:center">Nenhum registro neste mês.</td></tr>
+    {% endfor %}
+    <tr>
+      <td colspan="4"><b>Saldo do mês</b> <span class="mini">(trabalhado − recebido)</span></td>
+      <td class="num" style="color:var(--amarelo);font-weight:700">{{ hm_sinal(trabalhadas - recebidas) }}</td>
+    </tr>
+  </table>
 </div>
 
 <a class="btn claro" href="/ponto2/ponto/{{ f.id }}">Voltar</a>
