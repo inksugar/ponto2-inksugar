@@ -74,6 +74,15 @@ def init_db():
                 obs TEXT DEFAULT '',
                 criado_em TIMESTAMP NOT NULL DEFAULT NOW()
             );
+            CREATE TABLE IF NOT EXISTS taxas (
+                id SERIAL PRIMARY KEY,
+                funcionario_id INTEGER NOT NULL REFERENCES funcionarios(id) ON DELETE CASCADE,
+                valor_hora NUMERIC(10,2) NOT NULL,
+                vigente_desde DATE NOT NULL,
+                criado_em TIMESTAMP NOT NULL DEFAULT NOW(),
+                UNIQUE (funcionario_id, vigente_desde)
+            );
+            CREATE INDEX IF NOT EXISTS idx_taxas_funcionario ON taxas (funcionario_id, vigente_desde);
             CREATE INDEX IF NOT EXISTS idx_pontos_dia ON pontos (dia);
             CREATE INDEX IF NOT EXISTS idx_pontos_funcionario_dia ON pontos (funcionario_id, dia);
             CREATE INDEX IF NOT EXISTS idx_adiantamentos_funcionario_data ON adiantamentos (funcionario_id, data);
@@ -123,7 +132,23 @@ def iniciais(nome):
     return (p[0][0] + (p[-1][0] if len(p) > 1 else "")).upper()
 
 
-app.jinja_env.globals.update(hm=hm, hm_sinal=hm_sinal, iniciais=iniciais)
+def dinheiro(txt):
+    txt = (txt or "0").strip().replace("R$", "").replace(" ", "")
+    if "," in txt:
+        txt = txt.replace(".", "").replace(",", ".")
+    try:
+        return round(float(txt), 2)
+    except ValueError:
+        return 0.0
+
+
+def brl(v):
+    if v is None:
+        return "—"
+    return f"R$ {float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+app.jinja_env.globals.update(hm=hm, hm_sinal=hm_sinal, iniciais=iniciais, brl=brl)
 
 
 def calcula(entrada, saida, almoco):
@@ -152,6 +177,18 @@ def saldo_ate(cur, fid, data_corte):
     )
     abatido = int(cur.fetchone()[0])
     return trabalhado - abatido
+
+
+def valor_hora_em(cur, fid, data_ref):
+    """Valor da hora vigente numa data: a taxa mais recente cujo vigente_desde
+    seja <= data_ref. Mudar o valor nunca reescreve o passado — cada alteração
+    vale só a partir da data escolhida."""
+    cur.execute("""
+        SELECT valor_hora FROM taxas WHERE funcionario_id=%s AND vigente_desde<=%s
+        ORDER BY vigente_desde DESC LIMIT 1
+    """, (fid, data_ref))
+    r = cur.fetchone()
+    return float(r[0]) if r else None
 
 
 # ---------------- Telas da equipe ----------------
@@ -373,16 +410,23 @@ def pendencias(cur):
 @app.route("/ponto2/admin")
 @admin_only
 def admin():
-    ini, fim = semana_de(hoje())
+    hj = hoje()
+    ini, fim = semana_de(hj)
     with db() as conn, conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         cur.execute("SELECT * FROM funcionarios WHERE NOT arquivado ORDER BY aparece_no_ponto DESC, nome")
-        equipe = cur.fetchall()
+        equipe = []
+        for f in cur.fetchall():
+            d = dict(f)
+            cur.execute("SELECT * FROM taxas WHERE funcionario_id=%s ORDER BY vigente_desde DESC", (f["id"],))
+            d["taxas"] = cur.fetchall()
+            d["taxa_atual"] = next((t for t in d["taxas"] if t["vigente_desde"] <= hj), None)
+            equipe.append(d)
         cur.execute("SELECT * FROM funcionarios WHERE arquivado ORDER BY nome")
         arquivados = cur.fetchall()
         abertos, sem_entrada = pendencias(cur)
     return render_template("admin.html", equipe=equipe, arquivados=arquivados, ini=ini, fim=fim,
                            abertos=abertos, sem_entrada=sem_entrada,
-                           dia_semana=hoje().weekday())
+                           dia_semana=hj.weekday(), hoje=hj)
 
 
 @app.route("/ponto2/admin/funcionario", methods=["POST"])
@@ -425,6 +469,33 @@ def excluir_funcionario(fid):
 def desarquivar_funcionario(fid):
     with db() as conn, conn.cursor() as cur:
         cur.execute("UPDATE funcionarios SET arquivado=FALSE WHERE id=%s", (fid,))
+    return redirect(url_for("admin"))
+
+
+# --------- Valor da hora (histórico, vale a partir da data escolhida) ---------
+
+@app.route("/ponto2/admin/funcionario/<int:fid>/taxa", methods=["POST"])
+@admin_only
+def salvar_taxa(fid):
+    valor = dinheiro(request.form.get("valor_hora"))
+    try:
+        vigente_desde = date.fromisoformat(request.form.get("vigente_desde") or "")
+    except ValueError:
+        vigente_desde = hoje()
+    if valor > 0:
+        with db() as conn, conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO taxas (funcionario_id, valor_hora, vigente_desde) VALUES (%s,%s,%s)
+                ON CONFLICT (funcionario_id, vigente_desde) DO UPDATE SET valor_hora=EXCLUDED.valor_hora
+            """, (fid, valor, vigente_desde))
+    return redirect(url_for("admin"))
+
+
+@app.route("/ponto2/admin/taxa/<int:tid>/excluir", methods=["POST"])
+@admin_only
+def excluir_taxa(tid):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM taxas WHERE id=%s", (tid,))
     return redirect(url_for("admin"))
 
 

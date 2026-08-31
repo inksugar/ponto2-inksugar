@@ -26,7 +26,8 @@
   .linha-reg.tem-local{grid-template-columns:76px 64px 64px 56px 76px 1fr auto}
   .linha-reg input,.linha-reg select{padding:4px 5px;font-size:.8rem;border-radius:8px}
   .linha-reg .dia{font-size:.8rem}
-  .cab{padding:4px 0 6px}
+  .linha-reg.cab{padding:4px 0 6px;letter-spacing:0;font-size:.66rem}
+  .linha-reg.cab span{overflow:hidden;white-space:nowrap}
   @media (max-width:820px){
     .quinzenas{flex-direction:column;gap:4px}
   }
@@ -57,8 +58,8 @@
   <h3>{{ titulo }}</h3>
   <div class="tab-reg">
     <div class="linha-reg cab noprint-cab {% if hibrido %}tem-local{% endif %}">
-      <span>Dia</span><span>Entrada</span><span>Saída</span>
-      <span>Almoço</span>{% if hibrido %}<span class="noprint">Local</span>{% endif %}<span>Trab.</span><span class="noprint"></span>
+      <span>Dia</span><span>Entr.</span><span>Saída</span>
+      <span>Alm.</span>{% if hibrido %}<span class="noprint">Local</span>{% endif %}<span>Trab.</span><span class="noprint"></span>
     </div>
     {% for l in linhas %}
     <div class="linha-reg {% if hibrido %}tem-local{% endif %}">

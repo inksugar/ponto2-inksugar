@@ -63,6 +63,36 @@
               formnovalidate onclick="return confirm('Excluir {{ f.nome }} e todos os registros? Não dá pra desfazer.')">Excluir</button>
     </div>
   </form>
+
+  <details class="card" style="margin:-4px 0 12px;background:#0A2C40">
+    <summary style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>Valor da hora: <b>{{ brl(f.taxa_atual.valor_hora) if f.taxa_atual else '—' }}</b>
+        {% if f.taxa_atual %}<span class="mini">desde {{ f.taxa_atual.vigente_desde.strftime('%d/%m/%Y') }}</span>{% endif %}
+      </span>
+      <span class="mini">alterar / ver histórico ▾</span>
+    </summary>
+    <div style="margin-top:12px">
+      <p class="mini" style="margin:0 0 10px">Um valor novo só vale a partir da data escolhida — os dias anteriores continuam com o valor que estava em vigor neles. Fica só aqui na gestão, não aparece pra ela.</p>
+      <form method="post" action="/ponto2/admin/funcionario/{{ f.id }}/taxa" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+        <div style="flex:1;min-width:130px"><label>Novo valor (R$/h)</label><input name="valor_hora" placeholder="Ex: 15,00" required></div>
+        <div style="min-width:160px"><label>A partir de</label><input name="vigente_desde" type="date" value="{{ hoje }}" required></div>
+        <button class="btn claro" style="width:auto;margin:0" type="submit">Salvar</button>
+      </form>
+      {% if f.taxas %}
+      <div class="tab-reg" style="margin-top:14px">
+        <div class="linha-reg cab" style="grid-template-columns:1fr 1fr auto"><span>Vigente desde</span><span>Valor</span><span></span></div>
+        {% for t in f.taxas %}
+        <form method="post" action="/ponto2/admin/taxa/{{ t.id }}/excluir" class="linha-reg" style="grid-template-columns:1fr 1fr auto">
+          <span>{{ t.vigente_desde.strftime('%d/%m/%Y') }}</span>
+          <span>{{ brl(t.valor_hora) }}</span>
+          <button class="btn claro apaga" style="width:auto;margin:0;padding:6px 10px" type="submit"
+                  onclick="return confirm('Excluir o valor de {{ brl(t.valor_hora) }} vigente desde {{ t.vigente_desde.strftime('%d/%m/%Y') }}?')">Excluir</button>
+        </form>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </details>
   {% else %}
   <p class="mini">Ninguém cadastrado ainda.</p>
   {% endfor %}
