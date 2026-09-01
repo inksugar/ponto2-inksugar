@@ -375,8 +375,20 @@ def mes_pessoa(fid):
             return redirect(url_for("ponto"))
 
         eventos, trabalhadas, valor_trabalhado, valor_pago = extrato_do_mes(cur, fid, ini, fim)
-        falta_mes = round(valor_trabalhado - valor_pago, 2)
-        saldo = saldo_valor_ate(cur, fid, min(fim, hj))
+
+        # "Falta no mês" não trava no que foi pago só com data dentro do mês —
+        # um pagamento lançado depois (ex.: pago em 01/09 pra quitar agosto)
+        # tem que abater a dívida mais antiga primeiro (FIFO), não importa a
+        # data do lançamento. P é o total já pago até hoje, sem limite de mês;
+        # T(fim) e T(início-1) são o trabalhado acumulado até o fim do mês e
+        # até a véspera do mês — a diferença entre os dois "falta acumulada"
+        # isola exatamente a fatia que sobrou desse mês específico.
+        p_hoje = valor_pago_ate(cur, fid, hj)
+        t_fim_mes = valor_trabalhado_ate(cur, fid, fim)
+        t_antes_mes = valor_trabalhado_ate(cur, fid, ini - timedelta(days=1))
+        falta_mes = round(max(0, t_fim_mes - p_hoje) - max(0, t_antes_mes - p_hoje), 2)
+        valor_pago = round(valor_trabalhado - falta_mes, 2)
+        saldo = saldo_valor_ate(cur, fid, hj)
 
     ant_ano, ant_mes = (ano - 1, 12) if mes == 1 else (ano, mes - 1)
     prox_ano, prox_mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
