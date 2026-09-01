@@ -529,9 +529,10 @@ def salvar_funcionario():
                              entrada_padrao, saida_padrao, almoco_padrao_min, fid))
         else:
             cur.execute("""INSERT INTO funcionarios (nome,cargo,hibrido,foto,
-                           entrada_padrao,saida_padrao,almoco_padrao_min)
-                           VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
-                        (nome, cargo, hibrido, foto, entrada_padrao, saida_padrao, almoco_padrao_min))
+                           aparece_no_ponto,arquivado,entrada_padrao,saida_padrao,almoco_padrao_min)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                        (nome, cargo, hibrido, foto, aparece_no_ponto, arquivado,
+                         entrada_padrao, saida_padrao, almoco_padrao_min))
             fid = cur.fetchone()[0]
     return redirect(url_for("admin") + f"#f{fid}")
 
