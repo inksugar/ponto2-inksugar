@@ -163,7 +163,10 @@ def dinheiro(txt):
 def brl(v):
     if v is None:
         return "—"
-    return f"R$ {float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    v = round(float(v), 2)
+    if v == 0:
+        v = 0.0  # evita "-0,00" quando um resto de ponto flutuante arredonda pra zero negativo
+    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def hora_ou_none(txt):
