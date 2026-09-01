@@ -153,6 +153,16 @@ def brl(v):
     return f"R$ {float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def hora_ou_none(txt):
+    txt = (txt or "").strip()
+    if not txt:
+        return None
+    try:
+        return datetime.strptime(txt, "%H:%M").time()
+    except ValueError:
+        return None
+
+
 app.jinja_env.globals.update(hm=hm, hm_sinal=hm_sinal, iniciais=iniciais, brl=brl)
 
 
@@ -436,16 +446,6 @@ def admin():
 
 @app.route("/ponto2/admin/funcionario", methods=["POST"])
 @admin_only
-def hora_ou_none(txt):
-    txt = (txt or "").strip()
-    if not txt:
-        return None
-    try:
-        return datetime.strptime(txt, "%H:%M").time()
-    except ValueError:
-        return None
-
-
 def salvar_funcionario():
     fid = request.form.get("id")
     nome = (request.form.get("nome") or "").strip()
