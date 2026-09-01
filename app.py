@@ -27,6 +27,17 @@ app = Flask(__name__, static_url_path="/ponto2/static")
 app.secret_key = os.environ.get("SECRET_KEY", "troque-isso")
 app.permanent_session_lifetime = timedelta(days=30)
 
+
+@app.after_request
+def sem_cache(resp):
+    # páginas dinâmicas nunca devem ficar em cache no navegador — importante
+    # sobretudo logo depois de uma virada de app, pra ninguém ver tela velha.
+    # /static (fotos, ícones, manifest, sw.js) continua cacheável normalmente.
+    if not request.path.startswith("/ponto2/static"):
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+    return resp
+
 DATABASE_URL = os.environ["DATABASE_URL"]
 ADMIN_SENHA = os.environ.get("ADMIN_SENHA", "inksugar")
 CRON_TOKEN = os.environ.get("CRON_TOKEN", "")
