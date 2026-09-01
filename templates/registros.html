@@ -15,19 +15,20 @@
 
   /* mês inteiro tem até ~16 linhas por quinzena — compacto, e as duas quinzenas
      lado a lado pra aproveitar a largura da tela em vez de ficar um telão vertical */
-  .quinzenas{display:flex;gap:22px}
+  .quinzenas{display:flex;gap:56px}
   .quinzena{flex:1;min-width:0}
   .quinzena h3{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fraco);
     margin:0 0 6px;font-weight:500}
   .linha-reg{
-    grid-template-columns:76px 64px 64px 56px 1fr auto;
+    grid-template-columns:76px 88px 88px 56px 52px 1fr;
     gap:5px;padding:2px 0;font-size:.83rem;
   }
-  .linha-reg.tem-local{grid-template-columns:76px 64px 64px 56px 76px 1fr auto}
+  .linha-reg.tem-local{grid-template-columns:76px 88px 88px 56px 76px 52px 1fr}
   .linha-reg input,.linha-reg select{padding:4px 5px;font-size:.8rem;border-radius:8px}
   .linha-reg .dia{font-size:.8rem}
   .linha-reg.cab{padding:4px 0 6px;letter-spacing:0;font-size:.66rem}
   .linha-reg.cab span{overflow:hidden;white-space:nowrap}
+  .btn-padrao{background:transparent;border:1px solid var(--linha);color:var(--fraco)}
   @media (max-width:820px){
     .quinzenas{flex-direction:column;gap:4px}
   }
@@ -65,7 +66,7 @@
     <div class="linha-reg {% if hibrido %}tem-local{% endif %}">
       <input type="hidden" name="dia_{{ l.idx }}" value="{{ l.data }}">
       {% if l.reg %}<input type="hidden" name="id_{{ l.idx }}" value="{{ l.reg.id }}">{% endif %}
-      <span class="dia">{{ l.dia[:3] }} {{ l.data.strftime('%d/%m') }}</span>
+      <span class="dia">{{ l.data.strftime('%d/%m') }} {{ l.dia[:3] }}</span>
       <input id="entrada_{{ l.idx }}" name="entrada_{{ l.idx }}" type="time" value="{{ l.reg.entrada.strftime('%H:%M') if l.reg and l.reg.entrada }}">
       <input id="saida_{{ l.idx }}" name="saida_{{ l.idx }}" type="time" value="{{ l.reg.saida.strftime('%H:%M') if l.reg and l.reg.saida }}">
       <input id="almoco_{{ l.idx }}" name="almoco_{{ l.idx }}" type="number" min="0" max="240" step="5" value="{{ l.reg.almoco_min if l.reg else 0 }}">
@@ -80,7 +81,7 @@
       </span>
       <span class="acoes noprint">
         {% if not l.reg and ep and sp %}
-        <button type="button" class="btn claro" style="width:auto;margin:0;padding:3px 7px;font-size:.68rem"
+        <button type="button" class="btn btn-padrao" style="width:auto;margin:0;padding:3px 7px;font-size:.68rem"
                 onclick="preencherPadrao({{ l.idx }},'{{ ep }}','{{ sp }}',{{ ap }})" title="Preencher com o horário padrão dela">padrão</button>
         {% endif %}
       </span>

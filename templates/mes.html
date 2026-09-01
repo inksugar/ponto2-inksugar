@@ -30,12 +30,13 @@
   </div>
 </div>
 
-<div class="barra">
+<div class="barra noprint">
   <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ ant_ano }}&mes={{ ant_mes }}">← Mês anterior</a>
   {% if not atual %}
   <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes">Mês atual</a>
   <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ prox_ano }}&mes={{ prox_mes }}">Próximo mês →</a>
   {% endif %}
+  <button class="btn claro" style="width:auto" onclick="window.print()">Imprimir extrato</button>
 </div>
 
 <div class="card" style="overflow-x:auto">
@@ -46,7 +47,7 @@
     {% for e in eventos %}
       {% if e.tipo == 'trabalho' %}
       <tr>
-        <td>{{ e.dia_semana[:3] }} {{ e.data.strftime('%d/%m') }}{% if e.reg.local == 'home' %} <span class="mini">· home</span>{% endif %}</td>
+        <td>{{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }}{% if e.reg.local == 'home' %} <span class="mini">· home</span>{% endif %}</td>
         <td>{{ e.reg.entrada.strftime('%H:%M') if e.reg.entrada else '—' }}</td>
         <td>{{ e.reg.saida.strftime('%H:%M') if e.reg.saida else '—' }}</td>
         <td>{{ e.reg.almoco_min }}min</td>
@@ -57,7 +58,7 @@
       </tr>
       {% else %}
       <tr style="background:rgba(255,197,49,.08)">
-        <td colspan="4"><b>Adiantamento</b> · {{ e.dia_semana[:3] }} {{ e.data.strftime('%d/%m') }}
+        <td colspan="4"><b>Adiantamento</b> · {{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }}
           <span class="mini">horas já pagas, abatidas do saldo</span></td>
         <td class="num" style="color:var(--amarelo)">−{{ hm(e.reg.minutos) }}</td>
       </tr>
