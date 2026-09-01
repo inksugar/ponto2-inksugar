@@ -16,6 +16,9 @@
   .extrato-edit input[type=time],.extrato-edit input[type=number]{padding:6px 7px;font-size:.85rem}
   .linha-pago-edit{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--linha)}
   .linha-pago-edit:last-child{border-bottom:0}
+  .nav-meses{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .nav-meses .btn{width:auto;margin:0;padding:9px 12px;font-size:.85rem}
+  .nav-meses .btn.ano{padding:9px 8px;opacity:.7}
 </style>
 
 <div class="card topo">
@@ -47,13 +50,13 @@
   </div>
 </div>
 
-<div class="barra noprint">
-  <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ ant_ano }}&mes={{ ant_mes }}">← Mês anterior</a>
-  {% if not atual %}
-  <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes">Mês atual</a>
-  <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ prox_ano }}&mes={{ prox_mes }}">Próximo mês →</a>
-  {% endif %}
-  <button class="btn claro" style="width:auto" onclick="window.print()">Imprimir extrato</button>
+<div class="barra noprint nav-meses">
+  <a class="btn claro ano" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano - 1 }}&mes={{ mes }}" title="Ano anterior">« {{ ano - 1 }}</a>
+  {% for i in range(1, 13) %}
+  <a class="btn {{ 'verde' if i == mes else 'claro' }}" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ i }}">{{ MESES_ABREV[i - 1] }}</a>
+  {% endfor %}
+  <a class="btn claro ano" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano + 1 }}&mes={{ mes }}" title="Próximo ano">{{ ano + 1 }} »</a>
+  <button class="btn claro" onclick="window.print()">Imprimir extrato</button>
 </div>
 
 {% if is_admin %}
@@ -122,6 +125,9 @@
         <input name="data" type="date" value="{{ e.reg.data }}">
         <span class="mini">R$</span>
         <input name="valor" type="number" min="0" step="any" value="{{ e.valor }}" style="width:100px">
+        <span class="mini">ref.</span>
+        <input name="mes_ref" type="month" value="{{ e.reg.mes_ref.strftime('%Y-%m') if e.reg.mes_ref else '' }}"
+               title="Mês de referência (opcional) — em qual mês esse pagamento conta, se for diferente da data" style="width:130px">
         <input name="obs" value="{{ e.reg.obs or '' }}" placeholder="obs opcional" style="flex:1;min-width:120px">
         <button class="btn claro" type="submit" style="width:auto;margin:0;padding:8px 12px">Salvar</button>
         <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/adiantamento/{{ e.reg.id }}/excluir"

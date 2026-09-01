@@ -16,6 +16,7 @@ TZ = ZoneInfo("America/Sao_Paulo")
 DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
 MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
          "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+MESES_ABREV = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
 ALMOCO_PADRAO = 30
 JORNADA_LIMITE = 420  # 7h em minutos
 
@@ -102,6 +103,7 @@ def init_db():
             ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS saida_padrao TIME;
             ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS almoco_padrao_min INTEGER NOT NULL DEFAULT 0;
             ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS adiantamento_fixo NUMERIC(10,2) NOT NULL DEFAULT 0;
+            ALTER TABLE adiantamentos ADD COLUMN IF NOT EXISTS mes_ref DATE;
             ALTER TABLE adiantamentos ADD COLUMN IF NOT EXISTS valor_pago NUMERIC(10,2);
             ALTER TABLE adiantamentos ALTER COLUMN minutos DROP NOT NULL;
             ALTER TABLE adiantamentos ALTER COLUMN minutos DROP DEFAULT;
@@ -180,7 +182,21 @@ def hora_ou_none(txt):
         return None
 
 
-app.jinja_env.globals.update(hm=hm, hm_sinal=hm_sinal, iniciais=iniciais, brl=brl)
+def mes_ref_ou_none(txt):
+    """Campo <input type=month> manda 'AAAA-MM' — guarda como o dia 1 desse
+    mês, ou None se ela deixar em branco (aí conta pela data real do
+    lançamento, não por uma referência escolhida à mão)."""
+    txt = (txt or "").strip()
+    if not txt:
+        return None
+    try:
+        ano_s, mes_s = txt.split("-")
+        return date(int(ano_s), int(mes_s), 1)
+    except (ValueError, AttributeError):
+        return None
+
+
+app.jinja_env.globals.update(hm=hm, hm_sinal=hm_sinal, iniciais=iniciais, brl=brl, MESES_ABREV=MESES_ABREV)
 
 
 def calcula(entrada, saida, almoco):
@@ -436,20 +452,14 @@ def mes_pessoa(fid):
 
         eventos, trabalhadas, valor_trabalhado, valor_pago = extrato_do_mes(cur, fid, ini, fim)
 
-        # "Falta no mês" não trava no que foi pago só com data dentro do mês —
-        # um pagamento lançado depois (ex.: pago em 01/09 pra quitar agosto)
-        # tem que abater a dívida mais antiga primeiro (FIFO), não importa a
-        # data do lançamento. P é o total já pago até hoje, sem limite de mês;
-        # T(fim) e T(início-1) são o trabalhado acumulado até o fim do mês e
-        # até a véspera do mês — a diferença entre os dois "falta acumulada"
-        # isola exatamente a fatia que sobrou desse mês específico.
-        historico = taxas_historico(cur, fid)
-        p_hoje = valor_pago_ate(cur, fid, hj, historico)
-        t_fim_mes = valor_trabalhado_ate(cur, fid, fim, historico)
-        t_antes_mes = valor_trabalhado_ate(cur, fid, ini - timedelta(days=1), historico)
-        falta_mes = round(max(0, t_fim_mes - p_hoje) - max(0, t_antes_mes - p_hoje), 2)
-        valor_pago = round(valor_trabalhado - falta_mes, 2)
-        saldo = round(t_fim_mes - p_hoje, 2) if fim >= hj else saldo_valor_ate(cur, fid, hj, historico)
+        # "Pago no mês" já veio certo do extrato_do_mes: cada adiantamento
+        # conta pro mês do campo "mês de referência" quando ela escolhe um
+        # (ex.: adiantamento fixo pago dia 7, referente ao mês anterior) —
+        # sem mês de referência, conta pela data real do lançamento. Por
+        # isso "falta no mês" agora é só a conta direta, sem precisar de
+        # FIFO entre meses.
+        falta_mes = round(valor_trabalhado - valor_pago, 2)
+        saldo = saldo_valor_ate(cur, fid, hj)
 
     ant_ano, ant_mes = (ano - 1, 12) if mes == 1 else (ano, mes - 1)
     prox_ano, prox_mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
@@ -794,8 +804,12 @@ def extrato_do_mes(cur, fid, ini, fim):
         (fid, ini, fim),
     )
     pontos_periodo = cur.fetchall()
+    # conta pelo mês de referência quando ela escolheu um (pagamento de
+    # adiantamento fixo feito dia 7 pode ser referente ao mês anterior, por
+    # exemplo) — sem mês de referência escolhido, conta pela data real do
+    # lançamento, como antes.
     cur.execute(
-        "SELECT * FROM adiantamentos WHERE funcionario_id=%s AND data BETWEEN %s AND %s ORDER BY data",
+        "SELECT * FROM adiantamentos WHERE funcionario_id=%s AND COALESCE(mes_ref, data) BETWEEN %s AND %s ORDER BY data",
         (fid, ini, fim),
     )
     adiant_periodo = cur.fetchall()
@@ -862,6 +876,7 @@ def lancar_adiantamentos():
         data_lote = date.fromisoformat(request.form.get("data") or "")
     except ValueError:
         data_lote = hoje()
+    mes_ref_lote = mes_ref_ou_none(request.form.get("mes_ref"))
     with db() as conn, conn.cursor() as cur:
         cur.execute("SELECT id FROM funcionarios WHERE NOT arquivado")
         for (fid,) in cur.fetchall():
@@ -872,8 +887,8 @@ def lancar_adiantamentos():
             if valor_v <= 0:
                 continue
             cur.execute(
-                "INSERT INTO adiantamentos (funcionario_id, data, valor_pago) VALUES (%s,%s,%s)",
-                (fid, data_lote, valor_v),
+                "INSERT INTO adiantamentos (funcionario_id, data, valor_pago, mes_ref) VALUES (%s,%s,%s,%s)",
+                (fid, data_lote, valor_v, mes_ref_lote),
             )
     return redirect(url_for("adiantamentos"))
 
@@ -888,9 +903,10 @@ def salvar_adiantamento(aid):
         return redirect(voltar or url_for("adiantamentos"))
     valor_v = dinheiro(request.form.get("valor"))
     obs = (request.form.get("obs") or "").strip()[:200]
+    mes_ref_v = mes_ref_ou_none(request.form.get("mes_ref"))
     with db() as conn, conn.cursor() as cur:
-        cur.execute("UPDATE adiantamentos SET data=%s, valor_pago=%s, minutos=NULL, obs=%s WHERE id=%s",
-                    (data_v, valor_v, obs, aid))
+        cur.execute("UPDATE adiantamentos SET data=%s, valor_pago=%s, minutos=NULL, obs=%s, mes_ref=%s WHERE id=%s",
+                    (data_v, valor_v, obs, mes_ref_v, aid))
     return redirect(voltar or url_for("adiantamentos"))
 
 

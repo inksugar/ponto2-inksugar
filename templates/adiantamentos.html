@@ -12,9 +12,16 @@
   <h2>Lançar pagamento da semana</h2>
   <p class="mini" style="margin-top:-8px">Sugestão: até 40h do valor da hora de cada uma, limitado ao saldo disponível. Ajuste como quiser antes de lançar — deixe em branco ou zero pra não lançar nada pra alguém.</p>
   <form method="post" action="/ponto2/admin/adiantamentos/lancar">
-    <div style="max-width:220px;margin-bottom:16px">
-      <label for="data">Data do lançamento</label>
-      <input id="data" name="data" type="date" value="{{ hoje }}" required>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+      <div style="max-width:220px">
+        <label for="data">Data do lançamento</label>
+        <input id="data" name="data" type="date" value="{{ hoje }}" required>
+      </div>
+      <div style="max-width:180px">
+        <label for="mes_ref">Mês de referência</label>
+        <input id="mes_ref" name="mes_ref" type="month">
+        <p class="mini" style="margin:6px 0 0">Opcional — só preenche se esse pagamento é referente a um mês diferente da data acima (ex.: adiantamento fixo pago dia 7, referente ao mês anterior).</p>
+      </div>
     </div>
 
     <div class="tab-reg">
