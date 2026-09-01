@@ -750,13 +750,23 @@ def adiantamentos():
         cur.execute("SELECT * FROM funcionarios WHERE NOT arquivado ORDER BY nome")
         equipe = cur.fetchall()
         linhas = []
+        taxas_atuais = {}
         for f in equipe:
             saldo = saldo_valor_ate(cur, f["id"], hj)
             vh, vhh = taxa_em(cur, f["id"], hj)
             teto_40h = round(40 * vh, 2)
             sugestao = min(saldo, teto_40h) if saldo > 0 else 0
             linhas.append({"f": f, "saldo": saldo, "sugestao": sugestao})
-    return render_template("adiantamentos.html", linhas=linhas, hoje=hj)
+            taxas_atuais[f["id"]] = vh
+
+        cur.execute("""
+            SELECT a.*, f.nome AS f_nome, f.id AS f_id FROM adiantamentos a
+            JOIN funcionarios f ON f.id = a.funcionario_id
+            ORDER BY a.data DESC, a.criado_em DESC
+        """)
+        lancamentos = cur.fetchall()
+    return render_template("adiantamentos.html", linhas=linhas, hoje=hj,
+                           lancamentos=lancamentos, taxas_atuais=taxas_atuais)
 
 
 @app.route("/ponto2/admin/adiantamentos/lancar", methods=["POST"])
