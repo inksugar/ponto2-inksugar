@@ -281,6 +281,45 @@ def saldo_valor_ate(cur, fid, data_corte, historico=None):
                  - valor_pago_ate(cur, fid, data_corte, historico), 2)
 
 
+def saldos_em_lote(cur, ids, data_corte):
+    """Igual a saldo_valor_ate, mas pra várias pessoas de uma vez só — 3
+    consultas no total em vez de 3 por pessoa. Usado em /admin/adiantamentos,
+    que senão fica lento com a equipe inteira (cada pessoa a mais somava
+    mais idas e vindas ao banco). Devolve {funcionario_id: (saldo, historico)}."""
+    if not ids:
+        return {}
+    cur.execute("""
+        SELECT funcionario_id, valor_hora, valor_hora_home, vigente_desde FROM taxas
+        WHERE funcionario_id = ANY(%s) ORDER BY funcionario_id, vigente_desde DESC
+    """, (ids,))
+    historicos = {}
+    for fid, vh, vhh, vigente_desde in cur.fetchall():
+        historicos.setdefault(fid, []).append((float(vh), float(vhh or 0), vigente_desde))
+
+    cur.execute("""
+        SELECT funcionario_id, dia, minutos, local FROM pontos
+        WHERE funcionario_id = ANY(%s) AND dia<=%s AND minutos IS NOT NULL
+    """, (ids, data_corte))
+    trabalhado = {fid: 0.0 for fid in ids}
+    for fid, dia, minutos, local in cur.fetchall():
+        vh, vhh = taxa_em(historicos.get(fid, []), dia)
+        trabalhado[fid] += (minutos / 60) * (vhh if local == "home" else vh)
+
+    cur.execute("""
+        SELECT funcionario_id, data, minutos, valor_pago FROM adiantamentos
+        WHERE funcionario_id = ANY(%s) AND data<=%s
+    """, (ids, data_corte))
+    pago = {fid: 0.0 for fid in ids}
+    for fid, data_l, minutos, valor_pago in cur.fetchall():
+        if valor_pago is not None:
+            pago[fid] += float(valor_pago)
+        elif minutos:
+            vh, _ = taxa_em(historicos.get(fid, []), data_l)
+            pago[fid] += (minutos / 60) * vh
+
+    return {fid: (round(trabalhado[fid] - pago[fid], 2), historicos.get(fid, [])) for fid in ids}
+
+
 # ---------------- Telas da equipe ----------------
 
 @app.route("/ponto2/")
@@ -801,10 +840,10 @@ def adiantamentos():
     with db() as conn, conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         cur.execute("SELECT * FROM funcionarios WHERE NOT arquivado ORDER BY nome")
         equipe = cur.fetchall()
+        saldos = saldos_em_lote(cur, [f["id"] for f in equipe], hj)
         linhas = []
         for f in equipe:
-            historico = taxas_historico(cur, f["id"])
-            saldo = saldo_valor_ate(cur, f["id"], hj, historico)
+            saldo, historico = saldos[f["id"]]
             fixo = float(f["adiantamento_fixo"] or 0)
             if fixo > 0:
                 sugestao = fixo
