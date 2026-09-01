@@ -2,7 +2,7 @@
 {% from "_avatar.html" import avatar %}
 {% block titulo %}Registro de horas{% endblock %}
 {% block larga %}larga{% endblock %}
-{% block canto %}<a href="/ponto2/admin" class="mini">gestão</a>{% endblock %}
+{% block canto %}<a href="/ponto2/admin/adiantamentos" class="mini">gestão</a>{% endblock %}
 {% block conteudo %}
 <h1>Registro de horas</h1>
 <p class="sub">Toque na sua foto.</p>
@@ -18,6 +18,6 @@
   {% endfor %}
 </div>
 {% else %}
-<div class="card">Ninguém cadastrado ainda. Entre em <a href="/ponto2/admin">gestão</a> para incluir a equipe.</div>
+<div class="card">Ninguém cadastrado ainda. Entre em <a href="/ponto2/admin/adiantamentos">gestão</a> para incluir a equipe.</div>
 {% endif %}
 {% endblock %}

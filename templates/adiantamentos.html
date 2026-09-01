@@ -2,7 +2,7 @@
 {% from "_avatar.html" import avatar %}
 {% block titulo %}Adiantamentos{% endblock %}
 {% block larga %}larga{% endblock %}
-{% block canto %}<a href="/ponto2/admin" class="mini">gestão</a>{% endblock %}
+{% block canto %}<span><a href="/ponto2/ponto" class="mini">ponto</a> · <a href="/ponto2/admin/sair" class="mini">sair</a></span>{% endblock %}
 {% block conteudo %}
 
 <style>
@@ -18,8 +18,17 @@
   @media print{ .adiantamento-row{background:#f2f2f2!important} }
 </style>
 
+<div class="barra noprint">
+  <a class="btn claro" style="width:auto" href="/ponto2/admin/adiantamentos?ano={{ ant_ano }}&mes={{ ant_mes }}">← Mês anterior</a>
+  {% if not atual %}
+  <a class="btn claro" style="width:auto" href="/ponto2/admin/adiantamentos">Mês atual</a>
+  <a class="btn claro" style="width:auto" href="/ponto2/admin/adiantamentos?ano={{ prox_ano }}&mes={{ prox_mes }}">Próximo mês →</a>
+  {% endif %}
+  <a class="btn claro" style="width:auto;margin-left:auto" href="/ponto2/admin">Registro dos funcionários</a>
+</div>
+
 <h1>Banco de horas — adiantamentos</h1>
-<p class="sub">Saldo = valor trabalhado acumulado − valor já pago. É contínuo entre meses e pode ficar negativo.</p>
+<p class="sub">{{ nome_mes }}{% if atual %} · mês atual{% endif %} — saldo = valor trabalhado acumulado − valor já pago, contínuo entre meses, pode ficar negativo.</p>
 
 <div class="card">
   <h2>Lançar pagamento da semana</h2>

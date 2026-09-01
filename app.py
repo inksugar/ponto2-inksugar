@@ -383,7 +383,7 @@ def mes_pessoa(fid):
     return render_template("mes.html", f=f, eventos=eventos, ini=ini, fim=fim, nome_mes=nome_mes,
                            trabalhadas=trabalhadas, valor_trabalhado=valor_trabalhado,
                            valor_pago=valor_pago, falta_mes=falta_mes, saldo=saldo,
-                           ano=ano, mes=mes, atual=atual,
+                           ano=ano, mes=mes, atual=atual, is_admin=bool(session.get("admin")),
                            ant_ano=ant_ano, ant_mes=ant_mes, prox_ano=prox_ano, prox_mes=prox_mes)
 
 
@@ -743,7 +743,13 @@ def extrato_do_mes(cur, fid, ini, fim):
 @admin_only
 def adiantamentos():
     hj = hoje()
-    ini_mes, fim_mes = mes_de(hj.year, hj.month)
+    try:
+        ano = int(request.args.get("ano") or hj.year)
+        mes = int(request.args.get("mes") or hj.month)
+        date(ano, mes, 1)
+    except (TypeError, ValueError):
+        ano, mes = hj.year, hj.month
+    ini_mes, fim_mes = mes_de(ano, mes)
     with db() as conn, conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         cur.execute("SELECT * FROM funcionarios WHERE NOT arquivado ORDER BY nome")
         equipe = cur.fetchall()
@@ -757,8 +763,13 @@ def adiantamentos():
             linhas.append({"f": f, "saldo": saldo, "sugestao": sugestao,
                            "eventos": eventos, "trabalhadas": trabalhadas,
                            "valor_trabalhado": valor_trabalhado, "valor_pago": valor_pago})
-    nome_mes = f"{MESES[hj.month - 1]} de {hj.year}"
-    return render_template("adiantamentos.html", linhas=linhas, hoje=hj, nome_mes=nome_mes)
+    ant_ano, ant_mes = (ano - 1, 12) if mes == 1 else (ano, mes - 1)
+    prox_ano, prox_mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
+    atual = (ano == hj.year and mes == hj.month)
+    nome_mes = f"{MESES[mes - 1]} de {ano}"
+    return render_template("adiantamentos.html", linhas=linhas, hoje=hj, nome_mes=nome_mes,
+                           ano=ano, mes=mes, atual=atual,
+                           ant_ano=ant_ano, ant_mes=ant_mes, prox_ano=prox_ano, prox_mes=prox_mes)
 
 
 @app.route("/ponto2/admin/adiantamentos/lancar", methods=["POST"])

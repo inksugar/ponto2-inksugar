@@ -2,7 +2,7 @@
 {% from "_avatar.html" import avatar %}
 {% block titulo %}Meu extrato{% endblock %}
 {% block larga %}larga{% endblock %}
-{% block canto %}<a href="/ponto2/ponto/{{ f.id }}" class="mini">voltar</a>{% endblock %}
+{% block canto %}<a href="{{ '/ponto2/admin/adiantamentos' if is_admin else '/ponto2/ponto/' ~ f.id }}" class="mini">voltar</a>{% endblock %}
 {% block conteudo %}
 
 <style>
@@ -87,5 +87,5 @@
   </table>
 </div>
 
-<a class="btn claro noprint" href="/ponto2/ponto/{{ f.id }}">Voltar</a>
+<a class="btn claro noprint" href="{{ '/ponto2/admin/adiantamentos' if is_admin else '/ponto2/ponto/' ~ f.id }}">Voltar</a>
 {% endblock %}

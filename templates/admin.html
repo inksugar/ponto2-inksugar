@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% from "_avatar.html" import avatar %}
-{% block titulo %}Gestão{% endblock %}
+{% block titulo %}Registro dos funcionários{% endblock %}
 {% block larga %}larga{% endblock %}
-{% block canto %}<span><a href="/ponto2/ponto" class="mini">ponto</a> · <a href="/ponto2/admin/sair" class="mini">sair</a></span>{% endblock %}
+{% block canto %}<span><a href="/ponto2/admin/adiantamentos" class="mini">banco de horas</a> · <a href="/ponto2/ponto" class="mini">ponto</a> · <a href="/ponto2/admin/sair" class="mini">sair</a></span>{% endblock %}
 {% block conteudo %}
 <style>
   .bloco-funcionario > summary { list-style:none; }
@@ -10,8 +10,8 @@
   .bloco-funcionario > summary .seta { transition:transform .15s; opacity:.6; display:inline-block; }
   .bloco-funcionario[open] > summary .seta { transform:rotate(90deg); }
 </style>
-<h1>Gestão</h1>
-<p class="sub">Semana atual: {{ ini.strftime('%d/%m') }} a {{ fim.strftime('%d/%m') }}.</p>
+<h1>Registro dos funcionários</h1>
+<p class="sub">Cadastro, foto, valor da hora e horário padrão — informações que quase não mudam.</p>
 
 {% if abertos %}
 <div class="alerta">
@@ -23,11 +23,6 @@
 {% if sem_entrada and dia_semana < 5 %}
 <div class="aviso"><b>Ainda sem entrada hoje:</b> {{ sem_entrada|join(', ') }}</div>
 {% endif %}
-
-<div class="barra">
-  <a class="btn" style="width:auto" href="/ponto2/admin/registros">Ver registros do mês</a>
-  <a class="btn amarelo" style="width:auto;color:#0A0A0B" href="/ponto2/admin/adiantamentos">Banco de horas — adiantamentos</a>
-</div>
 
 <div class="card">
   <h2>Equipe</h2>
