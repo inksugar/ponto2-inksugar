@@ -2,33 +2,11 @@
 {% from "_avatar.html" import avatar %}
 {% block titulo %}Adiantamentos{% endblock %}
 {% block larga %}larga{% endblock %}
-{% block canto %}<span><a href="/ponto2/ponto" class="mini">ponto</a> · <a href="/ponto2/admin/sair" class="mini">sair</a></span>{% endblock %}
+{% block canto %}<span><a href="/ponto2/admin" class="mini">registro dos funcionários</a> · <a href="/ponto2/ponto" class="mini">ponto</a> · <a href="/ponto2/admin/sair" class="mini">sair</a></span>{% endblock %}
 {% block conteudo %}
 
-<style>
-  .bloco > summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between;
-                     flex-wrap:wrap; gap:8px; align-items:baseline; margin-bottom:4px; }
-  .bloco > summary::-webkit-details-marker { display:none; }
-  .bloco > summary .seta { transition:transform .15s; opacity:.6; margin-right:8px; display:inline-block; }
-  .bloco[open] > summary .seta { transform:rotate(90deg); }
-  .bloco[open] > summary { margin-bottom:10px; }
-  .bloco .corpo { padding-top:2px }
-  .linha-adiant input{width:auto;padding:6px 8px;font-size:.85rem}
-  .adiantamento-row{background:rgba(255,197,49,.08)}
-  @media print{ .adiantamento-row{background:#f2f2f2!important} }
-</style>
-
-<div class="barra noprint">
-  <a class="btn claro" style="width:auto" href="/ponto2/admin/adiantamentos?ano={{ ant_ano }}&mes={{ ant_mes }}">← Mês anterior</a>
-  {% if not atual %}
-  <a class="btn claro" style="width:auto" href="/ponto2/admin/adiantamentos">Mês atual</a>
-  <a class="btn claro" style="width:auto" href="/ponto2/admin/adiantamentos?ano={{ prox_ano }}&mes={{ prox_mes }}">Próximo mês →</a>
-  {% endif %}
-  <a class="btn claro" style="width:auto;margin-left:auto" href="/ponto2/admin">Registro dos funcionários</a>
-</div>
-
 <h1>Banco de horas — adiantamentos</h1>
-<p class="sub">{{ nome_mes }}{% if atual %} · mês atual{% endif %} — saldo = valor trabalhado acumulado − valor já pago, contínuo entre meses, pode ficar negativo.</p>
+<p class="sub">Saldo = valor trabalhado acumulado − valor já pago. Contínuo entre meses, pode ficar negativo. Clica no nome pra abrir o extrato completo dela numa aba nova.</p>
 
 <div class="card">
   <h2>Lançar pagamento da semana</h2>
@@ -45,9 +23,11 @@
       </div>
       {% for l in linhas %}
       <div class="linha-reg" style="grid-template-columns:1fr 120px 140px">
-        <span style="display:flex;align-items:center;gap:10px">
-          {{ avatar(l.f, 'sm') }} {{ l.f.nome }}
-        </span>
+        <a href="/ponto2/ponto/{{ l.f.id }}/mes" target="_blank" rel="noopener"
+           title="Abrir extrato completo dela numa aba nova"
+           style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit">
+          {{ avatar(l.f, 'sm') }} {{ l.f.nome }} <span class="mini">↗</span>
+        </a>
         <span class="num" style="{% if l.saldo < 0 %}color:var(--vermelho){% endif %}">{{ brl(l.saldo) }}</span>
         <input name="valor_{{ l.f.id }}" type="number" min="0" step="any" value="{{ l.sugestao if l.sugestao else '' }}" placeholder="0,00">
       </div>
@@ -62,78 +42,4 @@
   </form>
 </div>
 
-<h2 style="margin:28px 0 4px">Extrato por funcionário</h2>
-<p class="sub" style="margin-bottom:16px">{{ nome_mes }} — trabalho e pagamentos do mês, intercalados. Edita ou exclui um lançamento direto na linha dele.</p>
-
-{% for l in linhas %}
-<details class="card bloco" data-pessoa="{{ l.f.id }}">
-  <summary>
-    <a href="/ponto2/ponto/{{ l.f.id }}/mes?ano={{ ano }}&mes={{ mes }}" target="_blank" rel="noopener"
-       onclick="event.stopPropagation()" title="Abrir extrato completo dela numa aba nova"
-       style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
-      <span class="seta">▶</span>
-      {{ avatar(l.f, 'sm') }}
-      <div>
-        <div class="nome" style="font-size:1.1rem">{{ l.f.nome }} <span class="mini">↗</span></div>
-        <div class="cargo">{{ l.f.cargo }}</div>
-      </div>
-    </a>
-    <div class="num">
-      <div>Saldo atual: <b style="{% if l.saldo < 0 %}color:var(--vermelho){% else %}color:var(--amarelo){% endif %}">{{ brl(l.saldo) }}</b></div>
-      <div class="mini">no mês: {{ hm(l.trabalhadas) }} · {{ brl(l.valor_trabalhado) }} trabalhado · {{ brl(l.valor_pago) }} pago</div>
-    </div>
-  </summary>
-
-  <div class="corpo" style="overflow-x:auto">
-    <table>
-      <tr><th>Dia</th><th>Entrada</th><th>Saída</th><th>Almoço</th><th class="num">Total</th></tr>
-      {% for e in l.eventos %}
-        {% if e.tipo == 'trabalho' %}
-        <tr>
-          <td>{{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }}{% if e.reg.local == 'home' %} <span class="mini">· home</span>{% endif %}</td>
-          <td>{{ e.reg.entrada.strftime('%H:%M') if e.reg.entrada else '—' }}</td>
-          <td>{{ e.reg.saida.strftime('%H:%M') if e.reg.saida else '—' }}</td>
-          <td>{{ e.reg.almoco_min }}min</td>
-          <td class="num">
-            {% if e.reg.entrada and not e.reg.saida %}<span style="color:var(--amarelo)">em aberto</span>
-            {% else %}{{ hm(e.reg.minutos) }}{% endif %}
-          </td>
-        </tr>
-        {% else %}
-        <tr class="adiantamento-row">
-          <td colspan="5">
-            <form method="post" action="/ponto2/admin/adiantamento/{{ e.reg.id }}"
-                  class="linha-adiant" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:2px 0">
-              <b class="mini" style="color:var(--claro)">Pago</b>
-              <input name="data" type="date" value="{{ e.reg.data }}">
-              <span class="mini">R$</span>
-              <input name="valor" type="number" min="0" step="any" value="{{ e.valor }}" style="width:90px">
-              <input name="obs" value="{{ e.reg.obs or '' }}" placeholder="obs opcional" style="flex:1;min-width:120px">
-              <button class="btn claro" type="submit" style="width:auto;padding:8px 12px;margin:0">Salvar</button>
-              <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/adiantamento/{{ e.reg.id }}/excluir"
-                      style="width:auto;padding:8px 12px;margin:0"
-                      onclick="return confirm('Excluir este pagamento de {{ l.f.nome }}?')">Excluir</button>
-            </form>
-          </td>
-        </tr>
-        {% endif %}
-      {% else %}
-      <tr><td colspan="5" class="mini" style="text-align:center">Nenhum registro neste mês.</td></tr>
-      {% endfor %}
-    </table>
-  </div>
-</details>
-{% else %}
-<p class="mini">Ninguém cadastrado ainda.</p>
-{% endfor %}
-
-<script>
-  const blocosAdiant = () => Array.from(document.querySelectorAll('details.bloco'));
-  blocosAdiant().forEach(d => {
-    const chave = 'adiant-bloco-' + d.dataset.pessoa;
-    const salvo = sessionStorage.getItem(chave);
-    if (salvo !== null) d.open = (salvo === '1');
-    d.addEventListener('toggle', () => sessionStorage.setItem(chave, d.open ? '1' : '0'));
-  });
-</script>
 {% endblock %}
