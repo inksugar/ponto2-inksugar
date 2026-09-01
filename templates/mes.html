@@ -6,16 +6,16 @@
 {% block conteudo %}
 
 <style>
-  .adiantamento-row{background:rgba(255,197,49,.08)}
   .resumo-topo{grid-template-columns:repeat(4,1fr)}
   @media (max-width:560px){.resumo-topo{grid-template-columns:repeat(2,1fr)}}
-  @media print{
-    .resumo-topo .item{background:#fff!important;border-color:#999!important}
-    .adiantamento-row{background:#f2f2f2!important}
-  }
-  .extrato-edit input[type=time],.extrato-edit input[type=number]{padding:6px 7px;font-size:.85rem;width:auto}
-  .extrato-edit input[type=date]{padding:6px 7px;font-size:.85rem}
-  .linha-pago-edit{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:2px 0}
+  @media print{ .resumo-topo .item{background:#fff!important;border-color:#999!important} }
+  .quinzenas{display:flex;gap:40px;flex-wrap:wrap}
+  .quinzena{flex:1;min-width:260px}
+  .quinzena h3{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fraco);
+    margin:0 0 6px;font-weight:500}
+  .extrato-edit input[type=time],.extrato-edit input[type=number]{padding:6px 7px;font-size:.85rem}
+  .linha-pago-edit{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--linha)}
+  .linha-pago-edit:last-child{border-bottom:0}
 </style>
 
 <div class="card topo">
@@ -61,74 +61,82 @@
   <input type="hidden" name="funcionario_id" value="{{ f.id }}">
   <input type="hidden" name="ano" value="{{ ano }}">
   <input type="hidden" name="mes" value="{{ mes }}">
-  <input type="hidden" name="n" value="{{ eventos | selectattr('tipo','equalto','trabalho') | list | length }}">
+  <input type="hidden" name="n" value="{{ n_trabalho }}">
   <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
 </form>
 {% endif %}
 
-<div class="card {% if is_admin %}extrato-edit{% endif %}" style="overflow-x:auto">
+{% macro quinzena_tabela(titulo, evs) %}
+<div class="quinzena">
+  <h3>{{ titulo }}</h3>
   <table>
+    <tr><th>Dia</th><th>Entrada</th><th>Saída</th><th>Almoço</th><th class="num">Total</th></tr>
+    {% for e in evs %}
     <tr>
-      <th>Dia</th><th>Entrada</th><th>Saída</th><th>Almoço</th><th class="num">Total</th>
-    </tr>
-    {% for e in eventos %}
-      {% if e.tipo == 'trabalho' %}
-      <tr>
-        <td>{{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }}{% if e.reg.local == 'home' %} <span class="mini">· home</span>{% endif %}
-          {% if is_admin %}
-          <input type="hidden" form="pontosForm" name="dia_{{ e.idx }}" value="{{ e.data }}">
-          <input type="hidden" form="pontosForm" name="id_{{ e.idx }}" value="{{ e.reg.id }}">
-          <input type="hidden" form="pontosForm" name="local_{{ e.idx }}" value="{{ e.reg.local }}">
-          {% endif %}
-        </td>
+      <td>{{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }}{% if e.reg.local == 'home' %} <span class="mini">· home</span>{% endif %}
         {% if is_admin %}
-        <td><input form="pontosForm" type="time" name="entrada_{{ e.idx }}" value="{{ e.reg.entrada.strftime('%H:%M') if e.reg.entrada }}"></td>
-        <td><input form="pontosForm" type="time" name="saida_{{ e.idx }}" value="{{ e.reg.saida.strftime('%H:%M') if e.reg.saida }}"></td>
-        <td><input form="pontosForm" type="number" min="0" max="240" step="5" name="almoco_{{ e.idx }}" value="{{ e.reg.almoco_min }}" style="width:60px"></td>
-        {% else %}
-        <td>{{ e.reg.entrada.strftime('%H:%M') if e.reg.entrada else '—' }}</td>
-        <td>{{ e.reg.saida.strftime('%H:%M') if e.reg.saida else '—' }}</td>
-        <td>{{ e.reg.almoco_min }}min</td>
+        <input type="hidden" form="pontosForm" name="dia_{{ e.idx }}" value="{{ e.data }}">
+        <input type="hidden" form="pontosForm" name="id_{{ e.idx }}" value="{{ e.reg.id }}">
+        <input type="hidden" form="pontosForm" name="local_{{ e.idx }}" value="{{ e.reg.local }}">
         {% endif %}
-        <td class="num">
-          {% if e.reg.entrada and not e.reg.saida %}<span style="color:var(--amarelo)">em aberto</span>
-          {% else %}{{ hm(e.reg.minutos) }}{% endif %}
-        </td>
-      </tr>
+      </td>
+      {% if is_admin %}
+      <td><input form="pontosForm" type="time" name="entrada_{{ e.idx }}" value="{{ e.reg.entrada.strftime('%H:%M') if e.reg.entrada }}"></td>
+      <td><input form="pontosForm" type="time" name="saida_{{ e.idx }}" value="{{ e.reg.saida.strftime('%H:%M') if e.reg.saida }}"></td>
+      <td><input form="pontosForm" type="number" min="0" max="240" step="5" name="almoco_{{ e.idx }}" value="{{ e.reg.almoco_min }}" style="width:56px"></td>
       {% else %}
-      <tr class="adiantamento-row">
-        {% if is_admin %}
-        <td colspan="5">
-          <form method="post" action="/ponto2/admin/adiantamento/{{ e.reg.id }}" class="linha-pago-edit">
-            <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
-            <b class="mini" style="color:var(--claro)">Pago</b>
-            <input name="data" type="date" value="{{ e.reg.data }}">
-            <span class="mini">R$</span>
-            <input name="valor" type="number" min="0" step="any" value="{{ e.valor }}" style="width:90px">
-            <input name="obs" value="{{ e.reg.obs or '' }}" placeholder="obs opcional" style="flex:1;min-width:100px">
-            <button class="btn claro" type="submit" style="width:auto;margin:0;padding:6px 10px">Salvar</button>
-            <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/adiantamento/{{ e.reg.id }}/excluir"
-                    style="width:auto;margin:0;padding:6px 10px"
-                    onclick="return confirm('Excluir este pagamento de {{ f.nome }}?')">Excluir</button>
-          </form>
-        </td>
-        {% else %}
-        <td colspan="4"><b>Pago</b> · {{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }}
-          <span class="mini">abatido do saldo</span></td>
-        <td class="num" style="color:var(--amarelo)">−{{ brl(e.valor) }}</td>
-        {% endif %}
-      </tr>
+      <td>{{ e.reg.entrada.strftime('%H:%M') if e.reg.entrada else '—' }}</td>
+      <td>{{ e.reg.saida.strftime('%H:%M') if e.reg.saida else '—' }}</td>
+      <td>{{ e.reg.almoco_min }}min</td>
       {% endif %}
-    {% else %}
-    <tr><td colspan="5" class="mini" style="text-align:center">Nenhum registro neste mês.</td></tr>
-    {% endfor %}
-    <tr>
-      <td colspan="4"><b>Falta no mês</b> <span class="mini">(valor do mês − pago no mês)</span></td>
-      <td class="num" style="color:var(--amarelo);font-weight:700">{{ brl(falta_mes) }}</td>
+      <td class="num">
+        {% if e.reg.entrada and not e.reg.saida %}<span style="color:var(--amarelo)">em aberto</span>
+        {% else %}{{ hm(e.reg.minutos) }}{% endif %}
+      </td>
     </tr>
+    {% else %}
+    <tr><td colspan="5" class="mini" style="text-align:center">—</td></tr>
+    {% endfor %}
   </table>
+</div>
+{% endmacro %}
+
+<div class="card {% if is_admin %}extrato-edit{% endif %}" style="overflow-x:auto">
+  <div class="quinzenas">
+    {{ quinzena_tabela('1ª quinzena', primeira) }}
+    {{ quinzena_tabela('2ª quinzena', segunda) }}
+  </div>
   {% if is_admin %}
-  <button form="pontosForm" class="btn verde noprint" type="submit" style="margin-top:14px">Salvar horários do mês</button>
+  <button form="pontosForm" class="btn verde noprint" type="submit" style="margin-top:16px">Salvar horários do mês</button>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Adiantamentos do mês</h2>
+  <p class="sub" style="margin:-8px 0 14px">Falta no mês: <b style="color:var(--amarelo)">{{ brl(falta_mes) }}</b></p>
+  {% if pagamentos %}
+    {% for e in pagamentos %}
+      {% if is_admin %}
+      <form method="post" action="/ponto2/admin/adiantamento/{{ e.reg.id }}" class="linha-pago-edit">
+        <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
+        <input name="data" type="date" value="{{ e.reg.data }}">
+        <span class="mini">R$</span>
+        <input name="valor" type="number" min="0" step="any" value="{{ e.valor }}" style="width:100px">
+        <input name="obs" value="{{ e.reg.obs or '' }}" placeholder="obs opcional" style="flex:1;min-width:120px">
+        <button class="btn claro" type="submit" style="width:auto;margin:0;padding:8px 12px">Salvar</button>
+        <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/adiantamento/{{ e.reg.id }}/excluir"
+                style="width:auto;margin:0;padding:8px 12px"
+                onclick="return confirm('Excluir este pagamento de {{ f.nome }}?')">Excluir</button>
+      </form>
+      {% else %}
+      <div class="linha-pago-edit">
+        <span>{{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }}</span>
+        <b style="color:var(--amarelo);margin-left:auto">{{ brl(e.valor) }}</b>
+      </div>
+      {% endif %}
+    {% endfor %}
+  {% else %}
+  <p class="mini">Nenhum pagamento lançado neste mês.</p>
   {% endif %}
 </div>
 

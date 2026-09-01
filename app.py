@@ -101,6 +101,7 @@ def init_db():
             ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS entrada_padrao TIME;
             ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS saida_padrao TIME;
             ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS almoco_padrao_min INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS adiantamento_fixo NUMERIC(10,2) NOT NULL DEFAULT 0;
             ALTER TABLE adiantamentos ADD COLUMN IF NOT EXISTS valor_pago NUMERIC(10,2);
             ALTER TABLE adiantamentos ALTER COLUMN minutos DROP NOT NULL;
             ALTER TABLE adiantamentos ALTER COLUMN minutos DROP DEFAULT;
@@ -395,7 +396,15 @@ def mes_pessoa(fid):
     atual = (ano == hj.year and mes == hj.month)
     nome_mes = f"{MESES[mes - 1]} de {ano}"
 
-    return render_template("mes.html", f=f, eventos=eventos, ini=ini, fim=fim, nome_mes=nome_mes,
+    # de volta ao formato em quinzenas (1-15 / 16-fim) lado a lado — os
+    # pagamentos saem da tabela de dias e viram uma lista à parte, embaixo
+    trabalho_eventos = [e for e in eventos if e["tipo"] == "trabalho"]
+    primeira = [e for e in trabalho_eventos if e["data"].day <= 15]
+    segunda = [e for e in trabalho_eventos if e["data"].day > 15]
+    pagamentos = [e for e in eventos if e["tipo"] == "adiantamento"]
+
+    return render_template("mes.html", f=f, primeira=primeira, segunda=segunda, pagamentos=pagamentos,
+                           n_trabalho=len(trabalho_eventos), ini=ini, fim=fim, nome_mes=nome_mes,
                            trabalhadas=trabalhadas, valor_trabalhado=valor_trabalhado,
                            valor_pago=valor_pago, falta_mes=falta_mes, saldo=saldo,
                            ano=ano, mes=mes, atual=atual, is_admin=bool(session.get("admin")),
@@ -528,26 +537,30 @@ def salvar_funcionario():
         almoco_padrao_min = max(0, min(240, int(request.form.get("almoco_padrao_min") or 0)))
     except ValueError:
         almoco_padrao_min = 0
+    adiantamento_fixo = dinheiro(request.form.get("adiantamento_fixo"))
     with db() as conn, conn.cursor() as cur:
         if fid:
             if foto:
                 cur.execute("""UPDATE funcionarios SET nome=%s,cargo=%s,hibrido=%s,
                                aparece_no_ponto=%s,arquivado=%s,foto=%s,
-                               entrada_padrao=%s,saida_padrao=%s,almoco_padrao_min=%s WHERE id=%s""",
+                               entrada_padrao=%s,saida_padrao=%s,almoco_padrao_min=%s,
+                               adiantamento_fixo=%s WHERE id=%s""",
                             (nome, cargo, hibrido, aparece_no_ponto, arquivado, foto,
-                             entrada_padrao, saida_padrao, almoco_padrao_min, fid))
+                             entrada_padrao, saida_padrao, almoco_padrao_min, adiantamento_fixo, fid))
             else:
                 cur.execute("""UPDATE funcionarios SET nome=%s,cargo=%s,hibrido=%s,
                                aparece_no_ponto=%s,arquivado=%s,
-                               entrada_padrao=%s,saida_padrao=%s,almoco_padrao_min=%s WHERE id=%s""",
+                               entrada_padrao=%s,saida_padrao=%s,almoco_padrao_min=%s,
+                               adiantamento_fixo=%s WHERE id=%s""",
                             (nome, cargo, hibrido, aparece_no_ponto, arquivado,
-                             entrada_padrao, saida_padrao, almoco_padrao_min, fid))
+                             entrada_padrao, saida_padrao, almoco_padrao_min, adiantamento_fixo, fid))
         else:
             cur.execute("""INSERT INTO funcionarios (nome,cargo,hibrido,foto,
-                           aparece_no_ponto,arquivado,entrada_padrao,saida_padrao,almoco_padrao_min)
-                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                           aparece_no_ponto,arquivado,entrada_padrao,saida_padrao,almoco_padrao_min,
+                           adiantamento_fixo)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                         (nome, cargo, hibrido, foto, aparece_no_ponto, arquivado,
-                         entrada_padrao, saida_padrao, almoco_padrao_min))
+                         entrada_padrao, saida_padrao, almoco_padrao_min, adiantamento_fixo))
             fid = cur.fetchone()[0]
     return redirect(url_for("admin") + f"#f{fid}")
 
@@ -769,9 +782,13 @@ def adiantamentos():
         linhas = []
         for f in equipe:
             saldo = saldo_valor_ate(cur, f["id"], hj)
-            vh, vhh = taxa_em(cur, f["id"], hj)
-            teto_40h = round(40 * vh, 2)
-            sugestao = min(saldo, teto_40h) if saldo > 0 else 0
+            fixo = float(f["adiantamento_fixo"] or 0)
+            if fixo > 0:
+                sugestao = fixo
+            else:
+                vh, vhh = taxa_em(cur, f["id"], hj)
+                teto_40h = round(40 * vh, 2)
+                sugestao = min(saldo, teto_40h) if saldo > 0 else 0
             linhas.append({"f": f, "saldo": saldo, "sugestao": sugestao})
     return render_template("adiantamentos.html", linhas=linhas, hoje=hj)
 

@@ -72,6 +72,11 @@
         <input name="almoco_padrao_min" type="number" min="0" max="240" step="5" value="{{ f.almoco_padrao_min or 0 }}">
         <p class="mini" style="margin:6px 0 0">Horário que ela deveria cumprir — só pra controle. Se ela não bater o ponto num dia, em "registros do mês" tem um atalho pra preencher esse dia com esse horário padrão.</p>
       </div>
+      <div>
+        <label>Adiantamento fixo (R$)</label>
+        <input name="adiantamento_fixo" placeholder="Ex: 400,00" value="{{ ('%.2f'|format(f.adiantamento_fixo))|replace('.', ',') if f.adiantamento_fixo else '' }}">
+        <p class="mini" style="margin:6px 0 0">Valor padrão que ela recebe toda vez. Preenchido, ele já vem pronto no campo de valor quando você for lançar o pagamento — mas dá pra editar na hora.</p>
+      </div>
     </div>
     <div class="barra" style="margin:14px 0 0">
       <button class="btn claro" style="width:auto" type="submit">Salvar</button>
