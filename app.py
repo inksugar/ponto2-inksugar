@@ -78,6 +78,7 @@ def init_db():
                 id SERIAL PRIMARY KEY,
                 funcionario_id INTEGER NOT NULL REFERENCES funcionarios(id) ON DELETE CASCADE,
                 valor_hora NUMERIC(10,2) NOT NULL,
+                valor_hora_home NUMERIC(10,2) NOT NULL DEFAULT 0,
                 vigente_desde DATE NOT NULL,
                 criado_em TIMESTAMP NOT NULL DEFAULT NOW(),
                 UNIQUE (funcionario_id, vigente_desde)
@@ -86,6 +87,10 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_pontos_dia ON pontos (dia);
             CREATE INDEX IF NOT EXISTS idx_pontos_funcionario_dia ON pontos (funcionario_id, dia);
             CREATE INDEX IF NOT EXISTS idx_adiantamentos_funcionario_data ON adiantamentos (funcionario_id, data);
+            ALTER TABLE taxas ADD COLUMN IF NOT EXISTS valor_hora_home NUMERIC(10,2) NOT NULL DEFAULT 0;
+            ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS entrada_padrao TIME;
+            ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS saida_padrao TIME;
+            ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS almoco_padrao_min INTEGER NOT NULL DEFAULT 0;
         """)
 
 
@@ -431,6 +436,16 @@ def admin():
 
 @app.route("/ponto2/admin/funcionario", methods=["POST"])
 @admin_only
+def hora_ou_none(txt):
+    txt = (txt or "").strip()
+    if not txt:
+        return None
+    try:
+        return datetime.strptime(txt, "%H:%M").time()
+    except ValueError:
+        return None
+
+
 def salvar_funcionario():
     fid = request.form.get("id")
     nome = (request.form.get("nome") or "").strip()
@@ -439,20 +454,31 @@ def salvar_funcionario():
     aparece_no_ponto = bool(request.form.get("aparece_no_ponto"))
     arquivado = bool(request.form.get("arquivado"))
     foto = request.form.get("foto") or None
+    entrada_padrao = hora_ou_none(request.form.get("entrada_padrao"))
+    saida_padrao = hora_ou_none(request.form.get("saida_padrao"))
+    try:
+        almoco_padrao_min = max(0, min(240, int(request.form.get("almoco_padrao_min") or 0)))
+    except ValueError:
+        almoco_padrao_min = 0
     with db() as conn, conn.cursor() as cur:
         if fid:
             if foto:
                 cur.execute("""UPDATE funcionarios SET nome=%s,cargo=%s,hibrido=%s,
-                               aparece_no_ponto=%s,arquivado=%s,foto=%s WHERE id=%s""",
-                            (nome, cargo, hibrido, aparece_no_ponto, arquivado, foto, fid))
+                               aparece_no_ponto=%s,arquivado=%s,foto=%s,
+                               entrada_padrao=%s,saida_padrao=%s,almoco_padrao_min=%s WHERE id=%s""",
+                            (nome, cargo, hibrido, aparece_no_ponto, arquivado, foto,
+                             entrada_padrao, saida_padrao, almoco_padrao_min, fid))
             else:
                 cur.execute("""UPDATE funcionarios SET nome=%s,cargo=%s,hibrido=%s,
-                               aparece_no_ponto=%s,arquivado=%s WHERE id=%s""",
-                            (nome, cargo, hibrido, aparece_no_ponto, arquivado, fid))
+                               aparece_no_ponto=%s,arquivado=%s,
+                               entrada_padrao=%s,saida_padrao=%s,almoco_padrao_min=%s WHERE id=%s""",
+                            (nome, cargo, hibrido, aparece_no_ponto, arquivado,
+                             entrada_padrao, saida_padrao, almoco_padrao_min, fid))
         else:
-            cur.execute("""INSERT INTO funcionarios (nome,cargo,hibrido,foto)
-                           VALUES (%s,%s,%s,%s)""",
-                        (nome, cargo, hibrido, foto))
+            cur.execute("""INSERT INTO funcionarios (nome,cargo,hibrido,foto,
+                           entrada_padrao,saida_padrao,almoco_padrao_min)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                        (nome, cargo, hibrido, foto, entrada_padrao, saida_padrao, almoco_padrao_min))
     return redirect(url_for("admin"))
 
 
@@ -478,6 +504,7 @@ def desarquivar_funcionario(fid):
 @admin_only
 def salvar_taxa(fid):
     valor = dinheiro(request.form.get("valor_hora"))
+    valor_home = dinheiro(request.form.get("valor_hora_home"))
     try:
         vigente_desde = date.fromisoformat(request.form.get("vigente_desde") or "")
     except ValueError:
@@ -485,9 +512,10 @@ def salvar_taxa(fid):
     if valor > 0:
         with db() as conn, conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO taxas (funcionario_id, valor_hora, vigente_desde) VALUES (%s,%s,%s)
-                ON CONFLICT (funcionario_id, vigente_desde) DO UPDATE SET valor_hora=EXCLUDED.valor_hora
-            """, (fid, valor, vigente_desde))
+                INSERT INTO taxas (funcionario_id, valor_hora, valor_hora_home, vigente_desde) VALUES (%s,%s,%s,%s)
+                ON CONFLICT (funcionario_id, vigente_desde)
+                DO UPDATE SET valor_hora=EXCLUDED.valor_hora, valor_hora_home=EXCLUDED.valor_hora_home
+            """, (fid, valor, valor_home, vigente_desde))
     return redirect(url_for("admin"))
 
 

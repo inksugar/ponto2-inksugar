@@ -53,7 +53,7 @@
 <h1>Registros de ponto</h1>
 <p class="sub">{{ nome_mes }}{% if atual %} · mês atual{% endif %} — corrija entrada, saída e almoço na mão quando precisar.</p>
 
-{% macro coluna(titulo, linhas, hibrido) %}
+{% macro coluna(titulo, linhas, hibrido, ep, sp, ap) %}
 <div class="quinzena">
   <h3>{{ titulo }}</h3>
   <div class="tab-reg">
@@ -66,9 +66,9 @@
       <input type="hidden" name="dia_{{ l.idx }}" value="{{ l.data }}">
       {% if l.reg %}<input type="hidden" name="id_{{ l.idx }}" value="{{ l.reg.id }}">{% endif %}
       <span class="dia">{{ l.dia[:3] }} {{ l.data.strftime('%d/%m') }}</span>
-      <input name="entrada_{{ l.idx }}" type="time" value="{{ l.reg.entrada.strftime('%H:%M') if l.reg and l.reg.entrada }}">
-      <input name="saida_{{ l.idx }}" type="time" value="{{ l.reg.saida.strftime('%H:%M') if l.reg and l.reg.saida }}">
-      <input name="almoco_{{ l.idx }}" type="number" min="0" max="240" step="5" value="{{ l.reg.almoco_min if l.reg else 0 }}">
+      <input id="entrada_{{ l.idx }}" name="entrada_{{ l.idx }}" type="time" value="{{ l.reg.entrada.strftime('%H:%M') if l.reg and l.reg.entrada }}">
+      <input id="saida_{{ l.idx }}" name="saida_{{ l.idx }}" type="time" value="{{ l.reg.saida.strftime('%H:%M') if l.reg and l.reg.saida }}">
+      <input id="almoco_{{ l.idx }}" name="almoco_{{ l.idx }}" type="number" min="0" max="240" step="5" value="{{ l.reg.almoco_min if l.reg else 0 }}">
       {% if hibrido %}
       <select name="local_{{ l.idx }}" class="noprint">
         <option value="interno" {% if not l.reg or l.reg.local != 'home' %}selected{% endif %}>Interno</option>
@@ -78,7 +78,12 @@
       <span class="num tt" {% if l.reg and l.reg.entrada and not l.reg.saida %}style="color:var(--vermelho)"{% endif %}>
         {% if l.reg and l.reg.entrada and not l.reg.saida %}sem saída{% else %}{{ hm(l.reg.minutos) if l.reg else '—' }}{% endif %}
       </span>
-      <span class="acoes noprint"></span>
+      <span class="acoes noprint">
+        {% if not l.reg and ep and sp %}
+        <button type="button" class="btn claro" style="width:auto;margin:0;padding:3px 7px;font-size:.68rem"
+                onclick="preencherPadrao({{ l.idx }},'{{ ep }}','{{ sp }}',{{ ap }})" title="Preencher com o horário padrão dela">padrão</button>
+        {% endif %}
+      </span>
     </div>
     {% endfor %}
   </div>
@@ -105,9 +110,12 @@
       <input type="hidden" name="mes" value="{{ mes }}">
       <input type="hidden" name="n" value="{{ b.n }}">
 
+      {% set ep = b.f.entrada_padrao.strftime('%H:%M') if b.f.entrada_padrao else '' %}
+      {% set sp = b.f.saida_padrao.strftime('%H:%M') if b.f.saida_padrao else '' %}
+      {% set ap = b.f.almoco_padrao_min or 0 %}
       <div class="quinzenas">
-        {{ coluna('1ª quinzena', b.primeira, b.f.hibrido) }}
-        {{ coluna('2ª quinzena', b.segunda, b.f.hibrido) }}
+        {{ coluna('1ª quinzena', b.primeira, b.f.hibrido, ep, sp, ap) }}
+        {{ coluna('2ª quinzena', b.segunda, b.f.hibrido, ep, sp, ap) }}
       </div>
 
       <button class="btn verde noprint" type="submit" style="margin-top:12px">Salvar o mês de {{ b.f.nome.split(' ')[0] }}</button>
@@ -125,6 +133,12 @@
     if (salvo !== null) d.open = (salvo === '1');
     d.addEventListener('toggle', () => sessionStorage.setItem(chave, d.open ? '1' : '0'));
   });
+
+  function preencherPadrao(idx, entrada, saida, almoco) {
+    document.getElementById('entrada_' + idx).value = entrada;
+    document.getElementById('saida_' + idx).value = saida;
+    document.getElementById('almoco_' + idx).value = almoco;
+  }
 
   function todos(abrir) {
     blocos().forEach(d => { d.open = abrir; sessionStorage.setItem('bloco-' + d.dataset.pessoa, abrir ? '1' : '0'); });

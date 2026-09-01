@@ -54,6 +54,15 @@
         <p class="mini" style="margin:6px 0 0">Marcado: some de tudo (ponto, registros, banco de horas, alertas). Fica só na lista de Arquivados abaixo.</p>
       </div>
     </div>
+    <div class="grade" style="margin-top:14px">
+      <div><label>Entrada padrão</label><input name="entrada_padrao" type="time" value="{{ f.entrada_padrao.strftime('%H:%M') if f.entrada_padrao }}"></div>
+      <div><label>Saída padrão</label><input name="saida_padrao" type="time" value="{{ f.saida_padrao.strftime('%H:%M') if f.saida_padrao }}"></div>
+      <div>
+        <label>Almoço padrão (min)</label>
+        <input name="almoco_padrao_min" type="number" min="0" max="240" step="5" value="{{ f.almoco_padrao_min or 0 }}">
+        <p class="mini" style="margin:6px 0 0">Horário que ela deveria cumprir — só pra controle. Se ela não bater o ponto num dia, em "registros do mês" tem um atalho pra preencher esse dia com esse horário padrão.</p>
+      </div>
+    </div>
     <div class="barra" style="margin:14px 0 0">
       <button class="btn claro" style="width:auto" type="submit">Salvar</button>
       <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes">Extrato dela</a>
@@ -67,6 +76,7 @@
   <details class="card" style="margin:-4px 0 12px;background:#0A2C40">
     <summary style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <span>Valor da hora: <b>{{ brl(f.taxa_atual.valor_hora) if f.taxa_atual else '—' }}</b>
+        {% if f.hibrido %}<span class="mini">· home {{ brl(f.taxa_atual.valor_hora_home) if f.taxa_atual else '—' }}</span>{% endif %}
         {% if f.taxa_atual %}<span class="mini">desde {{ f.taxa_atual.vigente_desde.strftime('%d/%m/%Y') }}</span>{% endif %}
       </span>
       <span class="mini">alterar / ver histórico ▾</span>
@@ -75,16 +85,20 @@
       <p class="mini" style="margin:0 0 10px">Um valor novo só vale a partir da data escolhida — os dias anteriores continuam com o valor que estava em vigor neles. Fica só aqui na gestão, não aparece pra ela.</p>
       <form method="post" action="/ponto2/admin/funcionario/{{ f.id }}/taxa" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
         <div style="flex:1;min-width:130px"><label>Novo valor (R$/h)</label><input name="valor_hora" placeholder="Ex: 15,00" required></div>
+        {% if f.hibrido %}
+        <div style="flex:1;min-width:130px"><label>Valor/h home office</label><input name="valor_hora_home" placeholder="Ex: 15,00"></div>
+        {% endif %}
         <div style="min-width:160px"><label>A partir de</label><input name="vigente_desde" type="date" value="{{ hoje }}" required></div>
         <button class="btn claro" style="width:auto;margin:0" type="submit">Salvar</button>
       </form>
       {% if f.taxas %}
       <div class="tab-reg" style="margin-top:14px">
-        <div class="linha-reg cab" style="grid-template-columns:1fr 1fr auto"><span>Vigente desde</span><span>Valor</span><span></span></div>
+        <div class="linha-reg cab" style="grid-template-columns:1fr 1fr 1fr auto"><span>Vigente desde</span><span>Valor</span><span>Valor home</span><span></span></div>
         {% for t in f.taxas %}
-        <form method="post" action="/ponto2/admin/taxa/{{ t.id }}/excluir" class="linha-reg" style="grid-template-columns:1fr 1fr auto">
+        <form method="post" action="/ponto2/admin/taxa/{{ t.id }}/excluir" class="linha-reg" style="grid-template-columns:1fr 1fr 1fr auto">
           <span>{{ t.vigente_desde.strftime('%d/%m/%Y') }}</span>
           <span>{{ brl(t.valor_hora) }}</span>
+          <span>{{ brl(t.valor_hora_home) if f.hibrido else '—' }}</span>
           <button class="btn claro apaga" style="width:auto;margin:0;padding:6px 10px" type="submit"
                   onclick="return confirm('Excluir o valor de {{ brl(t.valor_hora) }} vigente desde {{ t.vigente_desde.strftime('%d/%m/%Y') }}?')">Excluir</button>
         </form>
@@ -129,6 +143,9 @@
         <label class="mini quadro"><input type="checkbox" name="hibrido" id="hib"> pode bater ponto em home office</label>
       </div>
       <div><label for="p">Foto</label><input id="p" type="file" accept="image/*" onchange="encolhe(this,'fotoNova')"></div>
+      <div><label>Entrada padrão</label><input name="entrada_padrao" type="time"></div>
+      <div><label>Saída padrão</label><input name="saida_padrao" type="time"></div>
+      <div><label>Almoço padrão (min)</label><input name="almoco_padrao_min" type="number" min="0" max="240" step="5" value="0"></div>
     </div>
     <button class="btn" style="margin-top:14px" type="submit">Incluir</button>
   </form>
