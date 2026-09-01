@@ -459,22 +459,31 @@ def mes_pessoa(fid):
         # isso "falta no mês" agora é só a conta direta, sem precisar de
         # FIFO entre meses.
         falta_mes = round(valor_trabalhado - valor_pago, 2)
-        saldo = saldo_valor_ate(cur, fid, hj)
+        # saldo "como estava no fim desse mês" (não o saldo de hoje) — senão,
+        # ao olhar um mês passado, um trabalho ainda não pago de um mês
+        # futuro aparecia ali, confundindo (a pendência de setembro
+        # aparecendo na página de agosto).
+        saldo = saldo_valor_ate(cur, fid, min(fim, hj))
+
+        # dias do mês inteiro (com ou sem registro) pra edição em quinzenas,
+        # igual /admin/registros — precisa mostrar os dias em branco também
+        # pro botão "usar horário padrão" ter onde preencher.
+        linhas_completas, _ = periodo_do_funcionario(cur, fid, ini, fim)
 
     ant_ano, ant_mes = (ano - 1, 12) if mes == 1 else (ano, mes - 1)
     prox_ano, prox_mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
     atual = (ano == hj.year and mes == hj.month)
     nome_mes = f"{MESES[mes - 1]} de {ano}"
 
-    # de volta ao formato em quinzenas (1-15 / 16-fim) lado a lado — os
-    # pagamentos saem da tabela de dias e viram uma lista à parte, embaixo
-    trabalho_eventos = [e for e in eventos if e["tipo"] == "trabalho"]
-    primeira = [e for e in trabalho_eventos if e["data"].day <= 15]
-    segunda = [e for e in trabalho_eventos if e["data"].day > 15]
+    # de volta ao formato em quinzenas (1-15 / 16-fim) lado a lado, com todo
+    # dia do mês (não só os que têm registro) — os pagamentos saem da tabela
+    # de dias e viram uma lista à parte, embaixo
+    primeira = [l for l in linhas_completas if l["data"].day <= 15]
+    segunda = [l for l in linhas_completas if l["data"].day > 15]
     pagamentos = [e for e in eventos if e["tipo"] == "adiantamento"]
 
     return render_template("mes.html", f=f, primeira=primeira, segunda=segunda, pagamentos=pagamentos,
-                           n_trabalho=len(trabalho_eventos), ini=ini, fim=fim, nome_mes=nome_mes,
+                           n_trabalho=len(linhas_completas), ini=ini, fim=fim, nome_mes=nome_mes,
                            trabalhadas=trabalhadas, valor_trabalhado=valor_trabalhado,
                            valor_pago=valor_pago, falta_mes=falta_mes, saldo=saldo,
                            ano=ano, mes=mes, atual=atual, is_admin=bool(session.get("admin")),

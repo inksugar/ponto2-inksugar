@@ -2,7 +2,7 @@
 {% from "_avatar.html" import avatar %}
 {% block titulo %}Meu extrato{% endblock %}
 {% block larga %}larga{% endblock %}
-{% block canto %}<a href="{{ '/ponto2/admin/adiantamentos' if is_admin else '/ponto2/ponto/' ~ f.id }}" class="mini">voltar</a>{% endblock %}
+{% block canto %}{% if not is_admin %}<a href="/ponto2/ponto/{{ f.id }}" class="mini">voltar</a>{% endif %}{% endblock %}
 {% block conteudo %}
 
 <style>
@@ -19,6 +19,7 @@
   .nav-meses{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
   .nav-meses .btn{width:auto;margin:0;padding:9px 12px;font-size:.85rem}
   .nav-meses .btn.ano{padding:9px 8px;opacity:.7}
+  .btn-padrao{background:transparent;border:1px solid var(--linha);color:var(--fraco)}
 </style>
 
 <div class="card topo">
@@ -69,36 +70,42 @@
 </form>
 {% endif %}
 
-{% macro quinzena_tabela(titulo, evs) %}
+{% macro quinzena_tabela(titulo, linhas) %}
 <div class="quinzena">
   <h3>{{ titulo }}</h3>
   <table>
-    <tr><th>Dia</th><th>Entrada</th><th>Saída</th><th>Almoço</th><th class="num">Total</th></tr>
-    {% for e in evs %}
+    <tr><th>Dia</th><th>Entrada</th><th>Saída</th><th>Almoço</th><th class="num">Total</th>{% if is_admin %}<th class="noprint"></th>{% endif %}</tr>
+    {% for l in linhas %}
     <tr>
-      <td>{{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }}{% if e.reg.local == 'home' %} <span class="mini">· home</span>{% endif %}
+      <td>{{ l.data.strftime('%d/%m') }} {{ l.dia[:3] }}{% if l.reg and l.reg.local == 'home' %} <span class="mini">· home</span>{% endif %}
         {% if is_admin %}
-        <input type="hidden" form="pontosForm" name="dia_{{ e.idx }}" value="{{ e.data }}">
-        <input type="hidden" form="pontosForm" name="id_{{ e.idx }}" value="{{ e.reg.id }}">
-        <input type="hidden" form="pontosForm" name="local_{{ e.idx }}" value="{{ e.reg.local }}">
+        <input type="hidden" form="pontosForm" name="dia_{{ l.idx }}" value="{{ l.data }}">
+        {% if l.reg %}<input type="hidden" form="pontosForm" name="id_{{ l.idx }}" value="{{ l.reg.id }}">{% endif %}
+        <input type="hidden" form="pontosForm" name="local_{{ l.idx }}" value="{{ l.reg.local if l.reg else 'interno' }}">
         {% endif %}
       </td>
       {% if is_admin %}
-      <td><input form="pontosForm" type="time" name="entrada_{{ e.idx }}" value="{{ e.reg.entrada.strftime('%H:%M') if e.reg.entrada }}"></td>
-      <td><input form="pontosForm" type="time" name="saida_{{ e.idx }}" value="{{ e.reg.saida.strftime('%H:%M') if e.reg.saida }}"></td>
-      <td><input form="pontosForm" type="number" min="0" max="240" step="5" name="almoco_{{ e.idx }}" value="{{ e.reg.almoco_min }}" style="width:56px"></td>
+      <td><input id="entrada_{{ l.idx }}" form="pontosForm" type="time" name="entrada_{{ l.idx }}" value="{{ l.reg.entrada.strftime('%H:%M') if l.reg and l.reg.entrada }}"></td>
+      <td><input id="saida_{{ l.idx }}" form="pontosForm" type="time" name="saida_{{ l.idx }}" value="{{ l.reg.saida.strftime('%H:%M') if l.reg and l.reg.saida }}"></td>
+      <td><input id="almoco_{{ l.idx }}" form="pontosForm" type="number" min="0" max="240" step="5" name="almoco_{{ l.idx }}" value="{{ l.reg.almoco_min if l.reg else 0 }}" style="width:56px"></td>
       {% else %}
-      <td>{{ e.reg.entrada.strftime('%H:%M') if e.reg.entrada else '—' }}</td>
-      <td>{{ e.reg.saida.strftime('%H:%M') if e.reg.saida else '—' }}</td>
-      <td>{{ e.reg.almoco_min }}min</td>
+      <td>{{ l.reg.entrada.strftime('%H:%M') if l.reg and l.reg.entrada else '—' }}</td>
+      <td>{{ l.reg.saida.strftime('%H:%M') if l.reg and l.reg.saida else '—' }}</td>
+      <td>{{ l.reg.almoco_min if l.reg else 0 }}min</td>
       {% endif %}
       <td class="num">
-        {% if e.reg.entrada and not e.reg.saida %}<span style="color:var(--amarelo)">em aberto</span>
-        {% else %}{{ hm(e.reg.minutos) }}{% endif %}
+        {% if l.reg and l.reg.entrada and not l.reg.saida %}<span style="color:var(--amarelo)">em aberto</span>
+        {% else %}{{ hm(l.reg.minutos) if l.reg else '—' }}{% endif %}
       </td>
+      {% if is_admin %}
+      <td class="noprint">
+        {% if not l.reg and f.entrada_padrao and f.saida_padrao %}
+        <button type="button" class="btn btn-padrao" style="width:auto;margin:0;padding:3px 7px;font-size:.68rem"
+                onclick="preencherPadrao({{ l.idx }},'{{ f.entrada_padrao.strftime('%H:%M') }}','{{ f.saida_padrao.strftime('%H:%M') }}',{{ f.almoco_padrao_min or 0 }})">padrão</button>
+        {% endif %}
+      </td>
+      {% endif %}
     </tr>
-    {% else %}
-    <tr><td colspan="5" class="mini" style="text-align:center">—</td></tr>
     {% endfor %}
   </table>
 </div>
@@ -146,5 +153,17 @@
   {% endif %}
 </div>
 
-<a class="btn claro noprint" href="{{ '/ponto2/admin/adiantamentos' if is_admin else '/ponto2/ponto/' ~ f.id }}">Voltar</a>
+{% if not is_admin %}
+<a class="btn claro noprint" href="/ponto2/ponto/{{ f.id }}">Voltar</a>
+{% endif %}
+
+{% if is_admin %}
+<script>
+  function preencherPadrao(idx, entrada, saida, almoco) {
+    document.getElementById('entrada_' + idx).value = entrada;
+    document.getElementById('saida_' + idx).value = saida;
+    document.getElementById('almoco_' + idx).value = almoco;
+  }
+</script>
+{% endif %}
 {% endblock %}

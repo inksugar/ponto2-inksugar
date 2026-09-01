@@ -2,7 +2,7 @@
 {% from "_avatar.html" import avatar %}
 {% block titulo %}Registro dos funcionários{% endblock %}
 {% block larga %}larga{% endblock %}
-{% block canto %}<span><a href="/ponto2/admin/adiantamentos" class="mini">banco de horas</a> · <a href="/ponto2/ponto" class="mini">ponto</a> · <a href="/ponto2/admin/sair" class="mini">sair</a></span>{% endblock %}
+{% block canto %}<span><a href="/ponto2/admin/adiantamentos" class="mini">gestão</a> · <a href="/ponto2/ponto" class="mini">ponto</a> · <a href="/ponto2/admin/sair" class="mini">sair</a></span>{% endblock %}
 {% block conteudo %}
 <style>
   .bloco-funcionario > summary { list-style:none; }
@@ -80,7 +80,7 @@
     </div>
     <div class="barra" style="margin:14px 0 0">
       <button class="btn claro" style="width:auto" type="submit">Salvar</button>
-      <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes">Extrato dela</a>
+      <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}/mes" target="_blank" rel="noopener">Extrato dela</a>
       <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ f.id }}">Atalho dela</a>
       <button class="btn claro" style="width:auto;border-color:var(--vermelho);color:var(--vermelho)"
               type="submit" formaction="/ponto2/admin/funcionario/{{ f.id }}/excluir"
