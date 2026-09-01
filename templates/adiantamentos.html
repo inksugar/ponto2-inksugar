@@ -42,43 +42,4 @@
   </form>
 </div>
 
-<div class="card">
-  <h2>Lançamentos</h2>
-  <p class="mini" style="margin-top:-8px">Edita data, valor ou observação de qualquer pagamento já lançado. Preencher "Horas" é só uma calculadora — ela usa o valor/hora atual da pessoa pra sugerir o valor, mas quem vale é o campo Valor.</p>
-  {% if lancamentos %}
-  <div class="tab-reg">
-    <div class="linha-reg cab" style="grid-template-columns:1fr 120px 90px 110px 1fr auto">
-      <span>Funcionário</span><span>Data</span><span>Horas</span><span>Valor (R$)</span><span>Obs.</span><span></span>
-    </div>
-    {% for a in lancamentos %}
-    <form method="post" action="/ponto2/admin/adiantamento/{{ a.id }}" class="linha-reg"
-          style="grid-template-columns:1fr 120px 90px 110px 1fr auto">
-      <span class="mini">{{ a.f_nome }}</span>
-      <input name="data" type="date" value="{{ a.data }}">
-      <input type="number" min="0" step="any" placeholder="—"
-             oninput="calcularValor(this, {{ a.f_id }}, 'valor{{ a.id }}')">
-      <input id="valor{{ a.id }}" name="valor" type="number" min="0" step="any" value="{{ a.valor_pago if a.valor_pago is not none else '' }}">
-      <input name="obs" value="{{ a.obs or '' }}" placeholder="opcional">
-      <span class="acoes">
-        <button class="btn claro" style="width:auto;margin:0;padding:6px 10px" type="submit">Salvar</button>
-        <button class="btn claro apaga" style="width:auto;margin:0;padding:6px 10px" type="submit"
-                formaction="/ponto2/admin/adiantamento/{{ a.id }}/excluir"
-                onclick="return confirm('Excluir este lançamento de {{ a.f_nome }}?')">Excluir</button>
-      </span>
-    </form>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p class="mini">Nenhum lançamento ainda.</p>
-  {% endif %}
-</div>
-
-<script>
-  const TAXAS = {{ taxas_atuais | tojson }};
-  function calcularValor(horasInput, fid, valorId) {
-    const horas = parseFloat(horasInput.value.replace(',', '.')) || 0;
-    const taxa = TAXAS[fid] || 0;
-    document.getElementById(valorId).value = (horas * taxa).toFixed(2);
-  }
-</script>
 {% endblock %}

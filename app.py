@@ -739,6 +739,11 @@ def extrato_do_mes(cur, fid, ini, fim):
                         "reg": a, "valor": valor_a})
 
     eventos.sort(key=lambda e: (e["data"], 0 if e["tipo"] == "trabalho" else 1))
+    idx = 0
+    for e in eventos:
+        if e["tipo"] == "trabalho":
+            e["idx"] = idx
+            idx += 1
     return eventos, trabalhadas, round(valor_trabalhado, 2), round(valor_pago, 2)
 
 
@@ -750,23 +755,13 @@ def adiantamentos():
         cur.execute("SELECT * FROM funcionarios WHERE NOT arquivado ORDER BY nome")
         equipe = cur.fetchall()
         linhas = []
-        taxas_atuais = {}
         for f in equipe:
             saldo = saldo_valor_ate(cur, f["id"], hj)
             vh, vhh = taxa_em(cur, f["id"], hj)
             teto_40h = round(40 * vh, 2)
             sugestao = min(saldo, teto_40h) if saldo > 0 else 0
             linhas.append({"f": f, "saldo": saldo, "sugestao": sugestao})
-            taxas_atuais[f["id"]] = vh
-
-        cur.execute("""
-            SELECT a.*, f.nome AS f_nome, f.id AS f_id FROM adiantamentos a
-            JOIN funcionarios f ON f.id = a.funcionario_id
-            ORDER BY a.data DESC, a.criado_em DESC
-        """)
-        lancamentos = cur.fetchall()
-    return render_template("adiantamentos.html", linhas=linhas, hoje=hj,
-                           lancamentos=lancamentos, taxas_atuais=taxas_atuais)
+    return render_template("adiantamentos.html", linhas=linhas, hoje=hj)
 
 
 @app.route("/ponto2/admin/adiantamentos/lancar", methods=["POST"])
@@ -795,24 +790,26 @@ def lancar_adiantamentos():
 @app.route("/ponto2/admin/adiantamento/<int:aid>", methods=["POST"])
 @admin_only
 def salvar_adiantamento(aid):
+    voltar = request.form.get("voltar")
     try:
         data_v = date.fromisoformat(request.form["data"])
     except (KeyError, ValueError):
-        return redirect(url_for("adiantamentos"))
+        return redirect(voltar or url_for("adiantamentos"))
     valor_v = dinheiro(request.form.get("valor"))
     obs = (request.form.get("obs") or "").strip()[:200]
     with db() as conn, conn.cursor() as cur:
         cur.execute("UPDATE adiantamentos SET data=%s, valor_pago=%s, minutos=NULL, obs=%s WHERE id=%s",
                     (data_v, valor_v, obs, aid))
-    return redirect(url_for("adiantamentos"))
+    return redirect(voltar or url_for("adiantamentos"))
 
 
 @app.route("/ponto2/admin/adiantamento/<int:aid>/excluir", methods=["POST"])
 @admin_only
 def excluir_adiantamento(aid):
+    voltar = request.form.get("voltar")
     with db() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM adiantamentos WHERE id=%s", (aid,))
-    return redirect(url_for("adiantamentos"))
+    return redirect(voltar or url_for("adiantamentos"))
 
 
 # ---------------- Alertas no WhatsApp ----------------
