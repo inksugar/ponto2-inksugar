@@ -477,9 +477,10 @@ def salvar_funcionario():
         else:
             cur.execute("""INSERT INTO funcionarios (nome,cargo,hibrido,foto,
                            entrada_padrao,saida_padrao,almoco_padrao_min)
-                           VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                           VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                         (nome, cargo, hibrido, foto, entrada_padrao, saida_padrao, almoco_padrao_min))
-    return redirect(url_for("admin"))
+            fid = cur.fetchone()[0]
+    return redirect(url_for("admin") + f"#f{fid}")
 
 
 @app.route("/ponto2/admin/funcionario/<int:fid>/excluir", methods=["POST"])
@@ -495,7 +496,7 @@ def excluir_funcionario(fid):
 def desarquivar_funcionario(fid):
     with db() as conn, conn.cursor() as cur:
         cur.execute("UPDATE funcionarios SET arquivado=FALSE WHERE id=%s", (fid,))
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin") + f"#f{fid}")
 
 
 # --------- Valor da hora (histórico, vale a partir da data escolhida) ---------
@@ -516,15 +517,18 @@ def salvar_taxa(fid):
                 ON CONFLICT (funcionario_id, vigente_desde)
                 DO UPDATE SET valor_hora=EXCLUDED.valor_hora, valor_hora_home=EXCLUDED.valor_hora_home
             """, (fid, valor, valor_home, vigente_desde))
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin") + f"#f{fid}")
 
 
 @app.route("/ponto2/admin/taxa/<int:tid>/excluir", methods=["POST"])
 @admin_only
 def excluir_taxa(tid):
     with db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT funcionario_id FROM taxas WHERE id=%s", (tid,))
+        r = cur.fetchone()
+        fid = r[0] if r else None
         cur.execute("DELETE FROM taxas WHERE id=%s", (tid,))
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin") + (f"#f{fid}" if fid else ""))
 
 
 # --------- Registros (correção manual de entrada/saída) ---------

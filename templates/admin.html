@@ -4,6 +4,12 @@
 {% block larga %}larga{% endblock %}
 {% block canto %}<span><a href="/ponto2/ponto" class="mini">ponto</a> · <a href="/ponto2/admin/sair" class="mini">sair</a></span>{% endblock %}
 {% block conteudo %}
+<style>
+  .bloco-funcionario > summary { list-style:none; }
+  .bloco-funcionario > summary::-webkit-details-marker { display:none; }
+  .bloco-funcionario > summary .seta { transition:transform .15s; opacity:.6; display:inline-block; }
+  .bloco-funcionario[open] > summary .seta { transform:rotate(90deg); }
+</style>
 <h1>Gestão</h1>
 <p class="sub">Semana atual: {{ ini.strftime('%d/%m') }} a {{ fim.strftime('%d/%m') }}.</p>
 
@@ -26,7 +32,16 @@
 <div class="card">
   <h2>Equipe</h2>
   {% for f in equipe %}
-  <form method="post" action="/ponto2/admin/funcionario" class="card" style="margin-bottom:12px;background:#0A2C40">
+  <details class="card bloco-funcionario" id="f{{ f.id }}" style="margin-bottom:12px;background:#0A2C40">
+    <summary style="cursor:pointer;display:flex;align-items:center;gap:14px">
+      <span class="seta">▶</span>
+      {{ avatar(f, 'sm') }}
+      <div>
+        <div class="nome">{{ f.nome }}</div>
+        <div class="cargo">{{ f.cargo }}</div>
+      </div>
+    </summary>
+  <form method="post" action="/ponto2/admin/funcionario" style="margin-top:14px">
     <input type="hidden" name="id" value="{{ f.id }}">
     <input type="hidden" name="foto" id="foto{{ f.id }}">
     <div style="display:flex;gap:14px;align-items:center;margin-bottom:12px">
@@ -107,6 +122,7 @@
       {% endif %}
     </div>
   </details>
+  </details>
   {% else %}
   <p class="mini">Ninguém cadastrado ainda.</p>
   {% endfor %}
@@ -153,6 +169,17 @@
 </div>
 
 <script>
+// só uma pessoa aberta por vez na Equipe — abrir uma fecha as outras
+document.querySelectorAll('.bloco-funcionario').forEach(d => {
+  d.addEventListener('toggle', () => {
+    if (d.open) {
+      document.querySelectorAll('.bloco-funcionario').forEach(outro => {
+        if (outro !== d) outro.open = false;
+      });
+    }
+  });
+});
+
 function encolhe(input, destino){
   const arq = input.files[0]; if(!arq) return;
   const img = new Image();
