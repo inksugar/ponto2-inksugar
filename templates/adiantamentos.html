@@ -14,14 +14,16 @@
   .bloco[open] > summary { margin-bottom:10px; }
   .bloco .corpo { padding-top:2px }
   .linha-adiant input{width:auto;padding:6px 8px;font-size:.85rem}
+  .adiantamento-row{background:rgba(255,197,49,.08)}
+  @media print{ .adiantamento-row{background:#f2f2f2!important} }
 </style>
 
 <h1>Banco de horas — adiantamentos</h1>
-<p class="sub">Saldo = horas trabalhadas acumuladas − horas já abatidas. É contínuo entre meses e pode ficar negativo.</p>
+<p class="sub">Saldo = valor trabalhado acumulado − valor já pago. É contínuo entre meses e pode ficar negativo.</p>
 
 <div class="card">
-  <h2>Lançar adiantamento da semana</h2>
-  <p class="mini" style="margin-top:-8px">Sugestão: {{ 2400 // 60 }}h pra quem tem saldo suficiente; menos que isso, sugere só o que está disponível. Ajuste como quiser antes de lançar — deixe em branco ou zero pra não lançar nada pra alguém.</p>
+  <h2>Lançar pagamento da semana</h2>
+  <p class="mini" style="margin-top:-8px">Sugestão: até 40h do valor da hora de cada uma, limitado ao saldo disponível. Ajuste como quiser antes de lançar — deixe em branco ou zero pra não lançar nada pra alguém.</p>
   <form method="post" action="/ponto2/admin/adiantamentos/lancar">
     <div style="max-width:220px;margin-bottom:16px">
       <label for="data">Data do lançamento</label>
@@ -30,15 +32,15 @@
 
     <div class="tab-reg">
       <div class="linha-reg cab" style="grid-template-columns:1fr 120px 140px">
-        <span>Funcionário</span><span>Saldo atual</span><span>Horas a abater</span>
+        <span>Funcionário</span><span>Saldo atual</span><span>Valor pago (R$)</span>
       </div>
       {% for l in linhas %}
       <div class="linha-reg" style="grid-template-columns:1fr 120px 140px">
         <span style="display:flex;align-items:center;gap:10px">
           {{ avatar(l.f, 'sm') }} {{ l.f.nome }}
         </span>
-        <span class="num" style="{% if l.saldo < 0 %}color:var(--vermelho){% endif %}">{{ hm_sinal(l.saldo) }}</span>
-        <input name="horas_{{ l.f.id }}" type="number" min="0" step="any" value="{{ l.sugestao_h if l.sugestao_h else '' }}" placeholder="0">
+        <span class="num" style="{% if l.saldo < 0 %}color:var(--vermelho){% endif %}">{{ brl(l.saldo) }}</span>
+        <input name="valor_{{ l.f.id }}" type="number" min="0" step="any" value="{{ l.sugestao if l.sugestao else '' }}" placeholder="0,00">
       </div>
       {% else %}
       <p class="mini">Ninguém cadastrado ainda.</p>
@@ -46,13 +48,13 @@
     </div>
 
     {% if linhas %}
-    <button class="btn verde" type="submit" style="margin-top:16px">Lançar adiantamentos</button>
+    <button class="btn verde" type="submit" style="margin-top:16px">Lançar pagamentos</button>
     {% endif %}
   </form>
 </div>
 
 <h2 style="margin:28px 0 4px">Extrato por funcionário</h2>
-<p class="sub" style="margin-bottom:16px">{{ nome_mes }} — trabalho e adiantamentos do mês, intercalados. Edita ou exclui um adiantamento direto na linha dele.</p>
+<p class="sub" style="margin-bottom:16px">{{ nome_mes }} — trabalho e pagamentos do mês, intercalados. Edita ou exclui um lançamento direto na linha dele.</p>
 
 {% for l in linhas %}
 <details class="card bloco" data-pessoa="{{ l.f.id }}">
@@ -66,8 +68,8 @@
       </div>
     </div>
     <div class="num">
-      <div>Saldo atual: <b style="{% if l.saldo < 0 %}color:var(--vermelho){% else %}color:var(--amarelo){% endif %}">{{ hm_sinal(l.saldo) }}</b></div>
-      <div class="mini">no mês: {{ hm(l.trabalhadas) }} trabalhadas · {{ hm(l.recebidas) }} recebidas</div>
+      <div>Saldo atual: <b style="{% if l.saldo < 0 %}color:var(--vermelho){% else %}color:var(--amarelo){% endif %}">{{ brl(l.saldo) }}</b></div>
+      <div class="mini">no mês: {{ hm(l.trabalhadas) }} · {{ brl(l.valor_trabalhado) }} trabalhado · {{ brl(l.valor_pago) }} pago</div>
     </div>
   </summary>
 
@@ -87,19 +89,19 @@
           </td>
         </tr>
         {% else %}
-        <tr style="background:rgba(255,197,49,.08)">
+        <tr class="adiantamento-row">
           <td colspan="5">
             <form method="post" action="/ponto2/admin/adiantamento/{{ e.reg.id }}"
                   class="linha-adiant" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:2px 0">
-              <b class="mini" style="color:var(--claro)">Adiantamento</b>
+              <b class="mini" style="color:var(--claro)">Pago</b>
               <input name="data" type="date" value="{{ e.reg.data }}">
-              <input name="horas" type="number" min="0" step="any" value="{{ (e.reg.minutos / 60) | round(2) }}" style="width:76px">
-              <span class="mini">h</span>
+              <span class="mini">R$</span>
+              <input name="valor" type="number" min="0" step="any" value="{{ e.valor }}" style="width:90px">
               <input name="obs" value="{{ e.reg.obs or '' }}" placeholder="obs opcional" style="flex:1;min-width:120px">
               <button class="btn claro" type="submit" style="width:auto;padding:8px 12px;margin:0">Salvar</button>
               <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/adiantamento/{{ e.reg.id }}/excluir"
                       style="width:auto;padding:8px 12px;margin:0"
-                      onclick="return confirm('Excluir este adiantamento de {{ l.f.nome }}?')">Excluir</button>
+                      onclick="return confirm('Excluir este pagamento de {{ l.f.nome }}?')">Excluir</button>
             </form>
           </td>
         </tr>

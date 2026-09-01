@@ -18,7 +18,6 @@ MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
          "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 ALMOCO_PADRAO = 30
 JORNADA_LIMITE = 420  # 7h em minutos
-ADIANTAMENTO_PADRAO_MIN = 2400  # 40h
 
 # App mora em /ponto2 na mesma VPS do ponto-inksugar original — nginx encaminha
 # o caminho inteiro (sem tirar o prefixo), então toda rota e todo link do
@@ -102,6 +101,9 @@ def init_db():
             ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS entrada_padrao TIME;
             ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS saida_padrao TIME;
             ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS almoco_padrao_min INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE adiantamentos ADD COLUMN IF NOT EXISTS valor_pago NUMERIC(10,2);
+            ALTER TABLE adiantamentos ALTER COLUMN minutos DROP NOT NULL;
+            ALTER TABLE adiantamentos ALTER COLUMN minutos DROP DEFAULT;
         """)
 
 
@@ -205,16 +207,54 @@ def saldo_ate(cur, fid, data_corte):
     return trabalhado - abatido
 
 
-def valor_hora_em(cur, fid, data_ref):
-    """Valor da hora vigente numa data: a taxa mais recente cujo vigente_desde
-    seja <= data_ref. Mudar o valor nunca reescreve o passado — cada alteração
-    vale só a partir da data escolhida."""
+def taxa_em(cur, fid, data_ref):
+    """Valor/hora (interno, home) vigente numa data: a taxa mais recente cujo
+    vigente_desde seja <= data_ref. Mudar o valor nunca reescreve o passado —
+    cada alteração vale só a partir da data escolhida."""
     cur.execute("""
-        SELECT valor_hora FROM taxas WHERE funcionario_id=%s AND vigente_desde<=%s
+        SELECT valor_hora, valor_hora_home FROM taxas WHERE funcionario_id=%s AND vigente_desde<=%s
         ORDER BY vigente_desde DESC LIMIT 1
     """, (fid, data_ref))
     r = cur.fetchone()
-    return float(r[0]) if r else None
+    if not r:
+        return 0.0, 0.0
+    return float(r[0]), float(r[1] or 0)
+
+
+def valor_trabalhado_ate(cur, fid, data_corte):
+    """Soma, em R$, do que foi trabalhado até uma data — cada dia valorizado
+    pela taxa vigente naquele dia (interno ou home conforme o local)."""
+    cur.execute(
+        "SELECT dia, minutos, local FROM pontos WHERE funcionario_id=%s AND dia<=%s AND minutos IS NOT NULL",
+        (fid, data_corte),
+    )
+    total = 0.0
+    for dia, minutos, local in cur.fetchall():
+        vh, vhh = taxa_em(cur, fid, dia)
+        total += (minutos / 60) * (vhh if local == "home" else vh)
+    return total
+
+
+def valor_pago_ate(cur, fid, data_corte):
+    """Soma, em R$, do que já foi pago via adiantamento até uma data.
+    Lançamentos novos guardam o valor direto; os antigos (em minutos, de
+    antes dessa mudança) são convertidos pela taxa vigente na data deles."""
+    cur.execute(
+        "SELECT data, minutos, valor_pago FROM adiantamentos WHERE funcionario_id=%s AND data<=%s",
+        (fid, data_corte),
+    )
+    total = 0.0
+    for data_l, minutos, valor_pago in cur.fetchall():
+        if valor_pago is not None:
+            total += float(valor_pago)
+        elif minutos:
+            vh, _ = taxa_em(cur, fid, data_l)
+            total += (minutos / 60) * vh
+    return total
+
+
+def saldo_valor_ate(cur, fid, data_corte):
+    return round(valor_trabalhado_ate(cur, fid, data_corte) - valor_pago_ate(cur, fid, data_corte), 2)
 
 
 # ---------------- Telas da equipe ----------------
@@ -331,8 +371,9 @@ def mes_pessoa(fid):
         if not f:
             return redirect(url_for("ponto"))
 
-        eventos, trabalhadas, recebidas = extrato_do_mes(cur, fid, ini, fim)
-        a_receber = saldo_ate(cur, fid, min(fim, hj))
+        eventos, trabalhadas, valor_trabalhado, valor_pago = extrato_do_mes(cur, fid, ini, fim)
+        falta_mes = round(valor_trabalhado - valor_pago, 2)
+        saldo = saldo_valor_ate(cur, fid, min(fim, hj))
 
     ant_ano, ant_mes = (ano - 1, 12) if mes == 1 else (ano, mes - 1)
     prox_ano, prox_mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
@@ -340,7 +381,8 @@ def mes_pessoa(fid):
     nome_mes = f"{MESES[mes - 1]} de {ano}"
 
     return render_template("mes.html", f=f, eventos=eventos, ini=ini, fim=fim, nome_mes=nome_mes,
-                           trabalhadas=trabalhadas, recebidas=recebidas, a_receber=a_receber,
+                           trabalhadas=trabalhadas, valor_trabalhado=valor_trabalhado,
+                           valor_pago=valor_pago, falta_mes=falta_mes, saldo=saldo,
                            ano=ano, mes=mes, atual=atual,
                            ant_ano=ant_ano, ant_mes=ant_mes, prox_ano=prox_ano, prox_mes=prox_mes)
 
@@ -653,8 +695,11 @@ def salvar_registros_pessoa():
 
 def extrato_do_mes(cur, fid, ini, fim):
     """Trabalho + adiantamentos de um funcionário num período, intercalados
-    cronologicamente — mesma lógica usada no extrato mensal dela (/ponto/<id>/mes)
-    e reaproveitada aqui pro extrato por pessoa da tela de adiantamentos."""
+    cronologicamente, cada evento já com o valor em R$ (trabalho valorizado
+    pela taxa vigente no dia; adiantamento com o valor pago direto, ou
+    convertido pela taxa se for um lançamento antigo em horas) — mesma
+    lógica usada no extrato mensal dela (/ponto/<id>/mes) e reaproveitada
+    aqui pro extrato por pessoa da tela de adiantamentos."""
     cur.execute(
         "SELECT * FROM pontos WHERE funcionario_id=%s AND dia BETWEEN %s AND %s ORDER BY dia, entrada",
         (fid, ini, fim),
@@ -665,14 +710,32 @@ def extrato_do_mes(cur, fid, ini, fim):
         (fid, ini, fim),
     )
     adiant_periodo = cur.fetchall()
+
     trabalhadas = sum(p["minutos"] or 0 for p in pontos_periodo)
-    recebidas = sum(a["minutos"] for a in adiant_periodo)
-    eventos = [{"tipo": "trabalho", "data": p["dia"], "dia_semana": DIAS[p["dia"].weekday()], "reg": p}
-               for p in pontos_periodo]
-    eventos += [{"tipo": "adiantamento", "data": a["data"], "dia_semana": DIAS[a["data"].weekday()], "reg": a}
-                for a in adiant_periodo]
+    valor_trabalhado = 0.0
+    eventos = []
+    for p in pontos_periodo:
+        valor_dia = 0.0
+        if p["minutos"]:
+            vh, vhh = taxa_em(cur, fid, p["dia"])
+            valor_dia = round((p["minutos"] / 60) * (vhh if p["local"] == "home" else vh), 2)
+            valor_trabalhado += valor_dia
+        eventos.append({"tipo": "trabalho", "data": p["dia"], "dia_semana": DIAS[p["dia"].weekday()],
+                        "reg": p, "valor": valor_dia})
+
+    valor_pago = 0.0
+    for a in adiant_periodo:
+        if a["valor_pago"] is not None:
+            valor_a = float(a["valor_pago"])
+        else:
+            vh, _ = taxa_em(cur, fid, a["data"])
+            valor_a = round(((a["minutos"] or 0) / 60) * vh, 2)
+        valor_pago += valor_a
+        eventos.append({"tipo": "adiantamento", "data": a["data"], "dia_semana": DIAS[a["data"].weekday()],
+                        "reg": a, "valor": valor_a})
+
     eventos.sort(key=lambda e: (e["data"], 0 if e["tipo"] == "trabalho" else 1))
-    return eventos, trabalhadas, recebidas
+    return eventos, trabalhadas, round(valor_trabalhado, 2), round(valor_pago, 2)
 
 
 @app.route("/ponto2/admin/adiantamentos")
@@ -685,12 +748,14 @@ def adiantamentos():
         equipe = cur.fetchall()
         linhas = []
         for f in equipe:
-            saldo = saldo_ate(cur, f["id"], hj)
-            sugestao = min(saldo, ADIANTAMENTO_PADRAO_MIN) if saldo > 0 else 0
-            eventos, trabalhadas, recebidas = extrato_do_mes(cur, f["id"], ini_mes, fim_mes)
+            saldo = saldo_valor_ate(cur, f["id"], hj)
+            vh, vhh = taxa_em(cur, f["id"], hj)
+            teto_40h = round(40 * vh, 2)
+            sugestao = min(saldo, teto_40h) if saldo > 0 else 0
+            eventos, trabalhadas, valor_trabalhado, valor_pago = extrato_do_mes(cur, f["id"], ini_mes, fim_mes)
             linhas.append({"f": f, "saldo": saldo, "sugestao": sugestao,
-                           "sugestao_h": round(sugestao / 60, 2),
-                           "eventos": eventos, "trabalhadas": trabalhadas, "recebidas": recebidas})
+                           "eventos": eventos, "trabalhadas": trabalhadas,
+                           "valor_trabalhado": valor_trabalhado, "valor_pago": valor_pago})
     nome_mes = f"{MESES[hj.month - 1]} de {hj.year}"
     return render_template("adiantamentos.html", linhas=linhas, hoje=hj, nome_mes=nome_mes)
 
@@ -705,19 +770,15 @@ def lancar_adiantamentos():
     with db() as conn, conn.cursor() as cur:
         cur.execute("SELECT id FROM funcionarios WHERE NOT arquivado")
         for (fid,) in cur.fetchall():
-            campo = (request.form.get(f"horas_{fid}") or "").strip()
+            campo = (request.form.get(f"valor_{fid}") or "").strip()
             if not campo:
                 continue
-            try:
-                horas_v = float(campo.replace(",", "."))
-            except ValueError:
+            valor_v = dinheiro(campo)
+            if valor_v <= 0:
                 continue
-            if horas_v <= 0:
-                continue
-            minutos_v = round(horas_v * 60)
             cur.execute(
-                "INSERT INTO adiantamentos (funcionario_id, data, minutos) VALUES (%s,%s,%s)",
-                (fid, data_lote, minutos_v),
+                "INSERT INTO adiantamentos (funcionario_id, data, valor_pago) VALUES (%s,%s,%s)",
+                (fid, data_lote, valor_v),
             )
     return redirect(url_for("adiantamentos"))
 
@@ -729,15 +790,11 @@ def salvar_adiantamento(aid):
         data_v = date.fromisoformat(request.form["data"])
     except (KeyError, ValueError):
         return redirect(url_for("adiantamentos"))
-    try:
-        horas_v = float((request.form.get("horas") or "0").replace(",", "."))
-    except ValueError:
-        horas_v = 0.0
-    minutos_v = max(0, round(horas_v * 60))
+    valor_v = dinheiro(request.form.get("valor"))
     obs = (request.form.get("obs") or "").strip()[:200]
     with db() as conn, conn.cursor() as cur:
-        cur.execute("UPDATE adiantamentos SET data=%s, minutos=%s, obs=%s WHERE id=%s",
-                    (data_v, minutos_v, obs, aid))
+        cur.execute("UPDATE adiantamentos SET data=%s, valor_pago=%s, minutos=NULL, obs=%s WHERE id=%s",
+                    (data_v, valor_v, obs, aid))
     return redirect(url_for("adiantamentos"))
 
 

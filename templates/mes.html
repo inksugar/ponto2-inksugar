@@ -5,6 +5,16 @@
 {% block canto %}<a href="/ponto2/ponto/{{ f.id }}" class="mini">voltar</a>{% endblock %}
 {% block conteudo %}
 
+<style>
+  .adiantamento-row{background:rgba(255,197,49,.08)}
+  .resumo-topo{grid-template-columns:repeat(4,1fr)}
+  @media (max-width:560px){.resumo-topo{grid-template-columns:repeat(2,1fr)}}
+  @media print{
+    .resumo-topo .item{background:#fff!important;border-color:#999!important}
+    .adiantamento-row{background:#f2f2f2!important}
+  }
+</style>
+
 <div class="card topo">
   {{ avatar(f, 'sm') }}
   <div>
@@ -20,11 +30,15 @@
       <div class="rotulo">Trabalhadas no mês</div>
     </div>
     <div class="item">
-      <div class="valor">{{ hm(recebidas) }}</div>
-      <div class="rotulo">Já recebidas</div>
+      <div class="valor">{{ brl(valor_trabalhado) }}</div>
+      <div class="rotulo">Valor do mês</div>
     </div>
     <div class="item">
-      <div class="valor" style="{% if a_receber < 0 %}color:var(--vermelho){% else %}color:var(--amarelo){% endif %}">{{ hm_sinal(a_receber) }}</div>
+      <div class="valor">{{ brl(valor_pago) }}</div>
+      <div class="rotulo">Pago no mês</div>
+    </div>
+    <div class="item">
+      <div class="valor" style="{% if saldo < 0 %}color:var(--vermelho){% else %}color:var(--amarelo){% endif %}">{{ brl(saldo) }}</div>
       <div class="rotulo">Saldo a receber</div>
     </div>
   </div>
@@ -57,21 +71,21 @@
         </td>
       </tr>
       {% else %}
-      <tr style="background:rgba(255,197,49,.08)">
-        <td colspan="4"><b>Adiantamento</b> · {{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }}
-          <span class="mini">horas já pagas, abatidas do saldo</span></td>
-        <td class="num" style="color:var(--amarelo)">−{{ hm(e.reg.minutos) }}</td>
+      <tr class="adiantamento-row">
+        <td colspan="4"><b>Pago</b> · {{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }}
+          <span class="mini">abatido do saldo</span></td>
+        <td class="num" style="color:var(--amarelo)">−{{ brl(e.valor) }}</td>
       </tr>
       {% endif %}
     {% else %}
     <tr><td colspan="5" class="mini" style="text-align:center">Nenhum registro neste mês.</td></tr>
     {% endfor %}
     <tr>
-      <td colspan="4"><b>Saldo do mês</b> <span class="mini">(trabalhado − recebido)</span></td>
-      <td class="num" style="color:var(--amarelo);font-weight:700">{{ hm_sinal(trabalhadas - recebidas) }}</td>
+      <td colspan="4"><b>Falta no mês</b> <span class="mini">(valor do mês − pago no mês)</span></td>
+      <td class="num" style="color:var(--amarelo);font-weight:700">{{ brl(falta_mes) }}</td>
     </tr>
   </table>
 </div>
 
-<a class="btn claro" href="/ponto2/ponto/{{ f.id }}">Voltar</a>
+<a class="btn claro noprint" href="/ponto2/ponto/{{ f.id }}">Voltar</a>
 {% endblock %}
