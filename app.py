@@ -211,35 +211,48 @@ def saldo_ate(cur, fid, data_corte):
     return trabalhado - abatido
 
 
-def taxa_em(cur, fid, data_ref):
-    """Valor/hora (interno, home) vigente numa data: a taxa mais recente cujo
-    vigente_desde seja <= data_ref. Mudar o valor nunca reescreve o passado —
-    cada alteração vale só a partir da data escolhida."""
+def taxas_historico(cur, fid):
+    """Todo o histórico de taxas da pessoa, mais recente primeiro — busca uma
+    vez só (a tabela é pequena, poucas linhas por pessoa) pra depois resolver
+    'qual taxa valia nessa data' inteiramente em memória, sem bater no banco
+    de novo pra cada dia trabalhado. Isso importa: um mês tem ~20-30 dias e o
+    histórico completo pode ter centenas de registros de pontos — fazer uma
+    query por linha (como era antes) deixava a página levando 10+ segundos."""
     cur.execute("""
-        SELECT valor_hora, valor_hora_home FROM taxas WHERE funcionario_id=%s AND vigente_desde<=%s
-        ORDER BY vigente_desde DESC LIMIT 1
-    """, (fid, data_ref))
-    r = cur.fetchone()
-    if not r:
-        return 0.0, 0.0
-    return float(r[0]), float(r[1] or 0)
+        SELECT valor_hora, valor_hora_home, vigente_desde FROM taxas
+        WHERE funcionario_id=%s ORDER BY vigente_desde DESC
+    """, (fid,))
+    return [(float(r[0]), float(r[1] or 0), r[2]) for r in cur.fetchall()]
 
 
-def valor_trabalhado_ate(cur, fid, data_corte):
+def taxa_em(historico, data_ref):
+    """Valor/hora (interno, home) vigente numa data, procurando em memória no
+    histórico já carregado — a mais recente cujo vigente_desde seja <= data_ref.
+    Mudar o valor nunca reescreve o passado — cada alteração vale só a partir
+    da data escolhida."""
+    for vh, vhh, vigente_desde in historico:
+        if vigente_desde <= data_ref:
+            return vh, vhh
+    return 0.0, 0.0
+
+
+def valor_trabalhado_ate(cur, fid, data_corte, historico=None):
     """Soma, em R$, do que foi trabalhado até uma data — cada dia valorizado
     pela taxa vigente naquele dia (interno ou home conforme o local)."""
+    if historico is None:
+        historico = taxas_historico(cur, fid)
     cur.execute(
         "SELECT dia, minutos, local FROM pontos WHERE funcionario_id=%s AND dia<=%s AND minutos IS NOT NULL",
         (fid, data_corte),
     )
     total = 0.0
     for dia, minutos, local in cur.fetchall():
-        vh, vhh = taxa_em(cur, fid, dia)
+        vh, vhh = taxa_em(historico, dia)
         total += (minutos / 60) * (vhh if local == "home" else vh)
     return total
 
 
-def valor_pago_ate(cur, fid, data_corte):
+def valor_pago_ate(cur, fid, data_corte, historico=None):
     """Soma, em R$, do que já foi pago via adiantamento até uma data.
     Lançamentos novos guardam o valor direto; os antigos (em minutos, de
     antes dessa mudança) são convertidos pela taxa vigente na data deles."""
@@ -248,17 +261,24 @@ def valor_pago_ate(cur, fid, data_corte):
         (fid, data_corte),
     )
     total = 0.0
-    for data_l, minutos, valor_pago in cur.fetchall():
+    linhas = cur.fetchall()
+    if any(v is None and m for _, m, v in linhas):
+        if historico is None:
+            historico = taxas_historico(cur, fid)
+    for data_l, minutos, valor_pago in linhas:
         if valor_pago is not None:
             total += float(valor_pago)
         elif minutos:
-            vh, _ = taxa_em(cur, fid, data_l)
+            vh, _ = taxa_em(historico, data_l)
             total += (minutos / 60) * vh
     return total
 
 
-def saldo_valor_ate(cur, fid, data_corte):
-    return round(valor_trabalhado_ate(cur, fid, data_corte) - valor_pago_ate(cur, fid, data_corte), 2)
+def saldo_valor_ate(cur, fid, data_corte, historico=None):
+    if historico is None:
+        historico = taxas_historico(cur, fid)
+    return round(valor_trabalhado_ate(cur, fid, data_corte, historico)
+                 - valor_pago_ate(cur, fid, data_corte, historico), 2)
 
 
 # ---------------- Telas da equipe ----------------
@@ -384,12 +404,13 @@ def mes_pessoa(fid):
         # T(fim) e T(início-1) são o trabalhado acumulado até o fim do mês e
         # até a véspera do mês — a diferença entre os dois "falta acumulada"
         # isola exatamente a fatia que sobrou desse mês específico.
-        p_hoje = valor_pago_ate(cur, fid, hj)
-        t_fim_mes = valor_trabalhado_ate(cur, fid, fim)
-        t_antes_mes = valor_trabalhado_ate(cur, fid, ini - timedelta(days=1))
+        historico = taxas_historico(cur, fid)
+        p_hoje = valor_pago_ate(cur, fid, hj, historico)
+        t_fim_mes = valor_trabalhado_ate(cur, fid, fim, historico)
+        t_antes_mes = valor_trabalhado_ate(cur, fid, ini - timedelta(days=1), historico)
         falta_mes = round(max(0, t_fim_mes - p_hoje) - max(0, t_antes_mes - p_hoje), 2)
         valor_pago = round(valor_trabalhado - falta_mes, 2)
-        saldo = saldo_valor_ate(cur, fid, hj)
+        saldo = round(t_fim_mes - p_hoje, 2) if fim >= hj else saldo_valor_ate(cur, fid, hj, historico)
 
     ant_ano, ant_mes = (ano - 1, 12) if mes == 1 else (ano, mes - 1)
     prox_ano, prox_mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
@@ -739,6 +760,7 @@ def extrato_do_mes(cur, fid, ini, fim):
         (fid, ini, fim),
     )
     adiant_periodo = cur.fetchall()
+    historico = taxas_historico(cur, fid)
 
     trabalhadas = sum(p["minutos"] or 0 for p in pontos_periodo)
     valor_trabalhado = 0.0
@@ -746,7 +768,7 @@ def extrato_do_mes(cur, fid, ini, fim):
     for p in pontos_periodo:
         valor_dia = 0.0
         if p["minutos"]:
-            vh, vhh = taxa_em(cur, fid, p["dia"])
+            vh, vhh = taxa_em(historico, p["dia"])
             valor_dia = round((p["minutos"] / 60) * (vhh if p["local"] == "home" else vh), 2)
             valor_trabalhado += valor_dia
         eventos.append({"tipo": "trabalho", "data": p["dia"], "dia_semana": DIAS[p["dia"].weekday()],
@@ -757,7 +779,7 @@ def extrato_do_mes(cur, fid, ini, fim):
         if a["valor_pago"] is not None:
             valor_a = float(a["valor_pago"])
         else:
-            vh, _ = taxa_em(cur, fid, a["data"])
+            vh, _ = taxa_em(historico, a["data"])
             valor_a = round(((a["minutos"] or 0) / 60) * vh, 2)
         valor_pago += valor_a
         eventos.append({"tipo": "adiantamento", "data": a["data"], "dia_semana": DIAS[a["data"].weekday()],
@@ -781,12 +803,13 @@ def adiantamentos():
         equipe = cur.fetchall()
         linhas = []
         for f in equipe:
-            saldo = saldo_valor_ate(cur, f["id"], hj)
+            historico = taxas_historico(cur, f["id"])
+            saldo = saldo_valor_ate(cur, f["id"], hj, historico)
             fixo = float(f["adiantamento_fixo"] or 0)
             if fixo > 0:
                 sugestao = fixo
             else:
-                vh, vhh = taxa_em(cur, f["id"], hj)
+                vh, vhh = taxa_em(historico, hj)
                 teto_40h = round(40 * vh, 2)
                 sugestao = min(saldo, teto_40h) if saldo > 0 else 0
             linhas.append({"f": f, "saldo": saldo, "sugestao": sugestao})
