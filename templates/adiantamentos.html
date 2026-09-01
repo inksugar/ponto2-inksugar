@@ -68,14 +68,16 @@
 {% for l in linhas %}
 <details class="card bloco" data-pessoa="{{ l.f.id }}">
   <summary>
-    <div style="display:flex;align-items:center;gap:12px">
+    <a href="/ponto2/ponto/{{ l.f.id }}/mes?ano={{ ano }}&mes={{ mes }}" target="_blank" rel="noopener"
+       onclick="event.stopPropagation()" title="Abrir extrato completo dela numa aba nova"
+       style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
       <span class="seta">▶</span>
       {{ avatar(l.f, 'sm') }}
       <div>
-        <div class="nome" style="font-size:1.1rem">{{ l.f.nome }}</div>
+        <div class="nome" style="font-size:1.1rem">{{ l.f.nome }} <span class="mini">↗</span></div>
         <div class="cargo">{{ l.f.cargo }}</div>
       </div>
-    </div>
+    </a>
     <div class="num">
       <div>Saldo atual: <b style="{% if l.saldo < 0 %}color:var(--vermelho){% else %}color:var(--amarelo){% endif %}">{{ brl(l.saldo) }}</b></div>
       <div class="mini">no mês: {{ hm(l.trabalhadas) }} · {{ brl(l.valor_trabalhado) }} trabalhado · {{ brl(l.valor_pago) }} pago</div>
@@ -119,10 +121,6 @@
       <tr><td colspan="5" class="mini" style="text-align:center">Nenhum registro neste mês.</td></tr>
       {% endfor %}
     </table>
-  </div>
-
-  <div class="barra noprint" style="margin:14px 0 0">
-    <a class="btn claro" style="width:auto" href="/ponto2/ponto/{{ l.f.id }}/mes">Ver extrato completo dela →</a>
   </div>
 </details>
 {% else %}
