@@ -273,7 +273,7 @@ def valor_pago_ate(cur, fid, data_corte, historico=None):
     Lançamentos novos guardam o valor direto; os antigos (em minutos, de
     antes dessa mudança) são convertidos pela taxa vigente na data deles."""
     cur.execute(
-        "SELECT data, minutos, valor_pago FROM adiantamentos WHERE funcionario_id=%s AND data<=%s",
+        "SELECT data, minutos, valor_pago FROM adiantamentos WHERE funcionario_id=%s AND COALESCE(mes_ref, data)<=%s",
         (fid, data_corte),
     )
     total = 0.0
@@ -323,7 +323,7 @@ def saldos_em_lote(cur, ids, data_corte):
 
     cur.execute("""
         SELECT funcionario_id, data, minutos, valor_pago FROM adiantamentos
-        WHERE funcionario_id = ANY(%s) AND data<=%s
+        WHERE funcionario_id = ANY(%s) AND COALESCE(mes_ref, data)<=%s
     """, (ids, data_corte))
     pago = {fid: 0.0 for fid in ids}
     for fid, data_l, minutos, valor_pago in cur.fetchall():
