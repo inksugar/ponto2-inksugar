@@ -57,7 +57,8 @@
   <a class="btn {{ 'verde' if i == mes else 'claro' }}" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ i }}">{{ MESES_ABREV[i - 1] }}</a>
   {% endfor %}
   <a class="btn claro ano" href="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano + 1 }}&mes={{ mes }}" title="Próximo ano">{{ ano + 1 }} »</a>
-  <button class="btn claro" onclick="window.print()">Imprimir extrato</button>
+  <button class="btn claro" type="button" onclick="baixarExtrato('pdf')">Baixar PDF</button>
+  <button class="btn claro" type="button" onclick="baixarExtrato('jpg')">Baixar JPG</button>
 </div>
 
 {% if is_admin %}
@@ -156,6 +157,103 @@
 {% if not is_admin %}
 <a class="btn claro noprint" href="/ponto2/ponto/{{ f.id }}">Voltar</a>
 {% endif %}
+
+{# folha limpa (fundo branco, só leitura) fora da tela — é ela que vira PDF/JPG #}
+<div style="position:absolute;left:-10000px;top:0">
+<div id="folha" style="width:780px;background:#fff;color:#111;padding:36px 40px;font-family:Arial,Helvetica,sans-serif;font-size:13px;box-sizing:border-box">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:14px">
+    <div>
+      <div style="font-size:11px;letter-spacing:.12em;color:#666">INKSUGAR · EXTRATO DE HORAS</div>
+      <div style="font-size:22px;font-weight:bold;margin-top:4px">{{ f.nome }}</div>
+    </div>
+    <div style="font-size:16px;font-weight:bold">{{ nome_mes }}</div>
+  </div>
+
+  <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+    <tr>
+      <td style="border:1px solid #bbb;padding:8px"><div style="font-size:10px;color:#666">TRABALHADAS</div><b style="font-size:15px">{{ hm(trabalhadas) }}</b></td>
+      <td style="border:1px solid #bbb;padding:8px"><div style="font-size:10px;color:#666">VALOR DO MÊS</div><b style="font-size:15px">{{ brl(valor_trabalhado) }}</b></td>
+      <td style="border:1px solid #bbb;padding:8px"><div style="font-size:10px;color:#666">PAGO NO MÊS</div><b style="font-size:15px">{{ brl(valor_pago) }}</b></td>
+      <td style="border:1px solid #bbb;padding:8px"><div style="font-size:10px;color:#666">FALTA NO MÊS</div><b style="font-size:15px">{{ brl(falta_mes) }}</b></td>
+    </tr>
+  </table>
+
+  <div style="font-weight:bold;margin-bottom:6px">Horários</div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+    <tr style="background:#eee">
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:left">Dia</th>
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:left">Entrada</th>
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:left">Saída</th>
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:left">Almoço</th>
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:right">Total</th>
+    </tr>
+    {% for l in primeira + segunda if l.reg %}
+    <tr>
+      <td style="border:1px solid #ddd;padding:3px 8px">{{ l.data.strftime('%d/%m') }} {{ l.dia[:3] }}{% if l.reg.local == 'home' %} · home{% endif %}</td>
+      <td style="border:1px solid #ddd;padding:3px 8px">{{ l.reg.entrada.strftime('%H:%M') if l.reg.entrada else '—' }}</td>
+      <td style="border:1px solid #ddd;padding:3px 8px">{{ l.reg.saida.strftime('%H:%M') if l.reg.saida else '—' }}</td>
+      <td style="border:1px solid #ddd;padding:3px 8px">{{ l.reg.almoco_min }}min</td>
+      <td style="border:1px solid #ddd;padding:3px 8px;text-align:right">{{ hm(l.reg.minutos) if l.reg.saida else 'em aberto' }}</td>
+    </tr>
+    {% endfor %}
+    <tr style="font-weight:bold;background:#f5f5f5">
+      <td colspan="4" style="border:1px solid #bbb;padding:4px 8px;text-align:right">Total do mês</td>
+      <td style="border:1px solid #bbb;padding:4px 8px;text-align:right">{{ hm(trabalhadas) }}</td>
+    </tr>
+  </table>
+
+  <div style="font-weight:bold;margin-bottom:6px">Adiantamentos / pagamentos</div>
+  <table style="width:100%;border-collapse:collapse">
+    <tr style="background:#eee">
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:left">Data</th>
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:left">Obs.</th>
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:right">Valor</th>
+    </tr>
+    {% for e in pagamentos %}
+    <tr>
+      <td style="border:1px solid #ddd;padding:3px 8px">{{ e.data.strftime('%d/%m/%Y') }}</td>
+      <td style="border:1px solid #ddd;padding:3px 8px">{{ e.reg.obs or '' }}</td>
+      <td style="border:1px solid #ddd;padding:3px 8px;text-align:right">{{ brl(e.valor) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" style="border:1px solid #ddd;padding:6px 8px;color:#666">Nenhum pagamento neste mês.</td></tr>
+    {% endfor %}
+    <tr style="font-weight:bold;background:#f5f5f5">
+      <td colspan="2" style="border:1px solid #bbb;padding:4px 8px;text-align:right">Total pago</td>
+      <td style="border:1px solid #bbb;padding:4px 8px;text-align:right">{{ brl(valor_pago) }}</td>
+    </tr>
+  </table>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+  async function baixarExtrato(formato) {
+    const nome = 'Extrato_{{ f.nome.split(" ")[0] }}_{{ MESES_ABREV[mes - 1] }}-{{ ano }}';
+    const canvas = await html2canvas(document.getElementById('folha'), {scale: 2, backgroundColor: '#ffffff'});
+    if (formato === 'jpg') {
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/jpeg', 0.92);
+      a.download = nome + '.jpg';
+      a.click();
+      return;
+    }
+    const pdf = new window.jspdf.jsPDF({unit: 'mm', format: 'a4'});
+    const L = pdf.internal.pageSize.getWidth(), A = pdf.internal.pageSize.getHeight();
+    const hTotal = canvas.height * L / canvas.width;
+    const hPag = Math.floor(A * canvas.width / L);   // px do canvas que cabem numa página
+    for (let y = 0, p = 0; y < canvas.height; y += hPag, p++) {
+      const fatia = document.createElement('canvas');
+      fatia.width = canvas.width;
+      fatia.height = Math.min(hPag, canvas.height - y);
+      fatia.getContext('2d').drawImage(canvas, 0, y, canvas.width, fatia.height, 0, 0, canvas.width, fatia.height);
+      if (p) pdf.addPage();
+      pdf.addImage(fatia.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, L, fatia.height * L / canvas.width);
+    }
+    pdf.save(nome + '.pdf');
+  }
+</script>
 
 {% if is_admin %}
 <script>
