@@ -915,11 +915,9 @@ def lancar_adiantamentos():
     except ValueError:
         data_lote = hoje()
     mes_ref_lote = mes_ref_ou_none(request.form.get("mes_ref"))
-    try:
-        data_cred = date.fromisoformat(request.form.get("data_c") or "")
-    except ValueError:
-        data_cred = data_lote
-    mes_ref_cred = mes_ref_ou_none(request.form.get("mes_ref_c"))
+    # data e mês de referência valem pros dois tipos de lançamento
+    data_cred = data_lote
+    mes_ref_cred = mes_ref_lote
     motivo_cred = (request.form.get("motivo_c") or "").strip()[:120]
     with db() as conn, conn.cursor() as cur:
         cur.execute("SELECT id FROM funcionarios WHERE NOT arquivado")

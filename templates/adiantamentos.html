@@ -6,56 +6,42 @@
 {% block conteudo %}
 
 <h1>Gestão</h1>
-<p class="sub">Saldo = valor trabalhado acumulado − valor já pago. Contínuo entre meses, pode ficar negativo. Clica na foto pra abrir o extrato completo dela numa aba nova.</p>
+<p class="sub">Saldo = valor trabalhado acumulado − valor já pago. Clica na foto pra abrir o extrato dela.</p>
 
 
 <div class="card">
   <form method="post" action="/ponto2/admin/adiantamentos/lancar">
-    <div class="duas-colunas">
-      <div>
-        <h2>Adiantamentos</h2>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <div style="flex:1;min-width:150px">
-            <label for="data">Data</label>
-            <input id="data" name="data" type="date" value="{{ hoje }}" required>
-          </div>
-          <div style="flex:1;min-width:150px">
-            <label for="mes_ref">Mês ref. <span class="mini">(opcional)</span></label>
-            <input id="mes_ref" name="mes_ref" type="month" title="Preenche só se for referente a um mês diferente da data">
-          </div>
-        </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px">
+      <div style="min-width:170px">
+        <label for="data">Data</label>
+        <input id="data" name="data" type="date" value="{{ hoje }}" required>
       </div>
-      <div>
-        <h2>Bônus / Feriados</h2>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <div style="flex:1;min-width:150px">
-            <label for="data_c">Data</label>
-            <input id="data_c" name="data_c" type="date" value="{{ hoje }}" required>
-          </div>
-          <div style="flex:1;min-width:150px">
-            <label for="mes_ref_c">Mês ref. <span class="mini">(opcional)</span></label>
-            <input id="mes_ref_c" name="mes_ref_c" type="month" title="Preenche só se for referente a um mês diferente da data">
-          </div>
-        </div>
-        <div style="margin-top:12px">
-          <label for="motivo_c">Referência</label>
-          <input id="motivo_c" name="motivo_c" placeholder="Ex.: Feriado 15/11, bônus meta">
-        </div>
+      <div style="min-width:170px">
+        <label for="mes_ref">Mês ref. <span class="mini">(opcional)</span></label>
+        <input id="mes_ref" name="mes_ref" type="month" title="Preenche só se for referente a um mês diferente da data">
       </div>
+      <div style="flex:1;min-width:220px">
+        <label for="motivo_c">Referência dos créditos</label>
+        <input id="motivo_c" name="motivo_c" placeholder="Ex.: Feriado 15/11, bônus meta">
+      </div>
+    </div>
 
+    <div class="tres-colunas">
+      <div class="cab-gestao"></div>
+      <div class="cab-gestao">Adiantamentos</div>
+      <div class="cab-gestao">Bônus / Feriados</div>
       {% for l in linhas %}
       <div class="linha-gestao">
         <a href="/ponto2/ponto/{{ l.f.id }}/mes" target="_blank" rel="noopener" title="{{ l.f.nome }} — abrir extrato" style="text-decoration:none">
           {{ avatar(l.f, 'sm') }}
         </a>
+      </div>
+      <div class="linha-gestao">
         <span class="num" title="Saldo atual" style="margin-left:auto;{% if l.saldo < 0 %}color:var(--vermelho){% endif %}">{{ brl(l.saldo) }}</span>
         <input name="valor_{{ l.f.id }}" type="number" min="0" step="any" value="{{ l.sugestao if l.sugestao else '' }}" placeholder="R$ 0,00" style="width:120px" title="Valor pago (R$)">
       </div>
       <div class="linha-gestao">
-        <a href="/ponto2/ponto/{{ l.f.id }}/mes" target="_blank" rel="noopener" title="{{ l.f.nome }} — abrir extrato" style="text-decoration:none">
-          {{ avatar(l.f, 'sm') }}
-        </a>
-        <input name="horas_{{ l.f.id }}" placeholder="horas" style="margin-left:auto;width:120px" title="Horas de crédito">
+        <input name="horas_{{ l.f.id }}" placeholder="horas" style="width:120px" title="Horas de crédito (ex.: 8 ou 8:30)">
       </div>
       {% else %}
       <p class="mini">Ninguém cadastrado ainda.</p>
@@ -69,9 +55,9 @@
 </div>
 
 <style>
-  .duas-colunas{display:grid;grid-template-columns:1fr 1fr;gap:0 40px}
+  .tres-colunas{display:grid;grid-template-columns:72px 1fr 1fr;gap:0 28px;align-items:center}
+  .cab-gestao{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fraco);padding-bottom:8px;border-bottom:1px solid var(--linha)}
   .linha-gestao{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--linha)}
-  @media (max-width:760px){.duas-colunas{grid-template-columns:1fr}}
 </style>
 
 {% endblock %}
