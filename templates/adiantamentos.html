@@ -48,26 +48,4 @@
   </form>
 </div>
 
-<div class="card">
-  <h2>Feriados</h2>
-  <p class="mini" style="margin-top:-8px">Vale pra todas: recebem 8h normalmente. Se baterem ponto no dia, as horas entram por cima (extra).</p>
-  <form method="post" action="/ponto2/admin/feriado" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
-    <div style="min-width:160px"><label for="fdata">Data</label><input id="fdata" name="data" type="date" required></div>
-    <div style="flex:1;min-width:160px"><label for="fnome">Nome</label><input id="fnome" name="nome" placeholder="Ex: Proclamação da República"></div>
-    <button class="btn claro" style="width:auto;margin:0" type="submit">Incluir</button>
-  </form>
-  {% if feriados %}
-  <div class="tab-reg" style="margin-top:14px">
-    {% for fe in feriados %}
-    <form method="post" action="/ponto2/admin/feriado/{{ fe.id }}/excluir" class="linha-reg" style="grid-template-columns:110px 1fr auto">
-      <span>{{ fe.data.strftime('%d/%m/%Y') }}</span>
-      <span>{{ fe.nome }}</span>
-      <button class="btn claro apaga" style="width:auto;margin:0;padding:6px 10px" type="submit"
-              onclick="return confirm('Excluir o feriado {{ fe.nome }}?')">Excluir</button>
-    </form>
-    {% endfor %}
-  </div>
-  {% endif %}
-</div>
-
 {% endblock %}

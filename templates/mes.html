@@ -79,7 +79,6 @@
     {% for l in linhas %}
     <tr>
       <td>{{ l.data.strftime('%d/%m') }} {{ l.dia[:3] }}{% if l.reg and l.reg.local == 'home' %} <span class="mini">· home</span>{% endif %}
-        {% if l.data in feriados_mes %}<span class="mini" style="color:var(--amarelo)" title="{{ brl(feriados_mes[l.data].valor) }}">· {{ feriados_mes[l.data].reg.nome }} +{{ hm(feriados_mes[l.data].reg.minutos) }}</span>{% endif %}
         {% if is_admin %}
         <input type="hidden" form="pontosForm" name="dia_{{ l.idx }}" value="{{ l.data }}">
         {% if l.reg %}<input type="hidden" form="pontosForm" name="id_{{ l.idx }}" value="{{ l.reg.id }}">{% endif %}
@@ -155,6 +154,43 @@
   {% endif %}
 </div>
 
+{% if is_admin or extras_mes %}
+<div class="card">
+  <h2>Dias extras / Feriados</h2>
+  {% for e in extras_mes %}
+    {% if is_admin %}
+    <form method="post" action="/ponto2/admin/extra/{{ e.reg.id }}" class="linha-pago-edit">
+      <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
+      <input name="data" type="date" value="{{ e.reg.data }}">
+      <input name="motivo" value="{{ e.reg.motivo }}" placeholder="motivo" style="flex:1;min-width:140px">
+      <input name="horas" value="{{ '%d:%02d' % (e.reg.minutos // 60, e.reg.minutos % 60) }}" style="width:70px" title="horas (ex.: 8 ou 8:30)">
+      <span class="mini">{{ brl(e.valor) }}</span>
+      <button class="btn claro" type="submit" style="width:auto;margin:0;padding:8px 12px">Salvar</button>
+      <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/extra/{{ e.reg.id }}/excluir"
+              style="width:auto;margin:0;padding:8px 12px"
+              onclick="return confirm('Excluir este lançamento de {{ f.nome }}?')">Excluir</button>
+    </form>
+    {% else %}
+    <div class="linha-pago-edit">
+      <span>{{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }} · {{ e.reg.motivo }}</span>
+      <b style="margin-left:auto">{{ hm(e.reg.minutos) }} · {{ brl(e.valor) }}</b>
+    </div>
+    {% endif %}
+  {% endfor %}
+  {% if is_admin %}
+  <form method="post" action="/ponto2/admin/extra" class="linha-pago-edit noprint">
+    <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
+    <input type="hidden" name="funcionario_id" value="{{ f.id }}">
+    <input name="data" type="date" required>
+    <input name="motivo" placeholder="motivo" style="flex:1;min-width:140px">
+    <input name="horas" placeholder="horas" required style="width:70px" title="horas (ex.: 8 ou 8:30)">
+    <label class="mini quadro" style="margin:0"><input type="checkbox" name="todas"> todas</label>
+    <button class="btn verde" type="submit" style="width:auto;margin:0;padding:8px 12px">Incluir</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
 {% if not is_admin %}
 <a class="btn claro noprint" href="/ponto2/ponto/{{ f.id }}">Voltar</a>
 {% endif %}
@@ -203,14 +239,21 @@
     </tr>
   </table>
 
-  {% if feriados_mes %}
-  <div style="font-weight:bold;margin-bottom:6px">Feriados (pagos normalmente; se trabalhou, as horas acima são extra)</div>
+  {% if extras_mes %}
+  <div style="font-weight:bold;margin-bottom:6px">Dias extras / feriados</div>
   <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-    {% for d, e in feriados_mes.items() %}
+    <tr style="background:#eee">
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:left">Data</th>
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:left">Motivo</th>
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:right">Horas</th>
+      <th style="border:1px solid #bbb;padding:4px 8px;text-align:right">Valor</th>
+    </tr>
+    {% for e in extras_mes %}
     <tr>
-      <td style="border:1px solid #ddd;padding:3px 8px">{{ d.strftime('%d/%m') }} {{ e.dia_semana[:3] }}</td>
-      <td style="border:1px solid #ddd;padding:3px 8px">{{ e.reg.nome }}</td>
-      <td style="border:1px solid #ddd;padding:3px 8px;text-align:right">{{ hm(e.reg.minutos) }} · {{ brl(e.valor) }}</td>
+      <td style="border:1px solid #ddd;padding:3px 8px">{{ e.data.strftime('%d/%m/%Y') }}</td>
+      <td style="border:1px solid #ddd;padding:3px 8px">{{ e.reg.motivo }}</td>
+      <td style="border:1px solid #ddd;padding:3px 8px;text-align:right">{{ hm(e.reg.minutos) }}</td>
+      <td style="border:1px solid #ddd;padding:3px 8px;text-align:right">{{ brl(e.valor) }}</td>
     </tr>
     {% endfor %}
   </table>
