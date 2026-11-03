@@ -27,21 +27,25 @@
     </div>
 
     <div class="tres-colunas">
-      <div class="cab-gestao"></div>
-      <div class="cab-gestao">Adiantamentos</div>
-      <div class="cab-gestao">Bônus / Feriados</div>
+      <div class="linha-g cab-g">
+        <div></div>
+        <div class="col-adi">Adiantamentos</div>
+        <div class="col-bonus">Bônus / Feriados</div>
+      </div>
       {% for l in linhas %}
-      <div class="linha-gestao">
-        <a href="/ponto2/ponto/{{ l.f.id }}/mes" target="_blank" rel="noopener" title="{{ l.f.nome }} — abrir extrato" style="text-decoration:none">
-          {{ avatar(l.f, 'sm') }}
-        </a>
-      </div>
-      <div class="linha-gestao">
-        <span class="num" title="Saldo atual" style="margin-left:auto;{% if l.saldo < 0 %}color:var(--vermelho){% endif %}">{{ brl(l.saldo) }}</span>
-        <input name="valor_{{ l.f.id }}" type="number" min="0" step="any" value="{{ l.sugestao if l.sugestao else '' }}" placeholder="R$ 0,00" style="width:120px" title="Valor pago (R$)">
-      </div>
-      <div class="linha-gestao">
-        <input name="horas_{{ l.f.id }}" placeholder="horas" style="width:120px" title="Horas de crédito (ex.: 8 ou 8:30)">
+      <div class="linha-g">
+        <div class="col-foto">
+          <a href="/ponto2/ponto/{{ l.f.id }}/mes" target="_blank" rel="noopener" title="{{ l.f.nome }} — abrir extrato" style="text-decoration:none">
+            {{ avatar(l.f, 'sm') }}
+          </a>
+        </div>
+        <div class="col-adi">
+          <span class="num" title="Saldo atual" style="{% if l.saldo < 0 %}color:var(--vermelho){% endif %}">{{ brl(l.saldo) }}</span>
+          <input name="valor_{{ l.f.id }}" type="number" min="0" step="any" value="{{ l.sugestao if l.sugestao else '' }}" placeholder="R$ 0,00" style="width:120px" title="Valor pago (R$)">
+        </div>
+        <div class="col-bonus">
+          <input name="horas_{{ l.f.id }}" placeholder="horas" style="width:120px" title="Horas de crédito (ex.: 8 ou 8:30)">
+        </div>
       </div>
       {% else %}
       <p class="mini">Ninguém cadastrado ainda.</p>
@@ -55,9 +59,11 @@
 </div>
 
 <style>
-  .tres-colunas{display:grid;grid-template-columns:72px 1fr 1fr;gap:0 28px;align-items:center}
-  .cab-gestao{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fraco);padding-bottom:8px;border-bottom:1px solid var(--linha)}
-  .linha-gestao{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--linha)}
+  .linha-g{display:grid;grid-template-columns:72px 1fr 1fr;border-bottom:1px solid var(--linha)}
+  .linha-g > div{display:flex;align-items:center;padding:8px 0}
+  .cab-g > div{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fraco)}
+  .col-adi{justify-content:flex-end;gap:10px;padding-right:48px !important}
+  .col-bonus{padding-left:48px !important;border-left:2px solid var(--linha)}
 </style>
 
 {% endblock %}
