@@ -116,6 +116,7 @@ def init_db():
                 minutos INTEGER NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_extras_funcionario_data ON extras (funcionario_id, data);
+            ALTER TABLE extras ADD COLUMN IF NOT EXISTS mes_ref DATE;
         """)
 
 
@@ -275,7 +276,7 @@ def valor_trabalhado_ate(cur, fid, data_corte, historico=None):
         vh, vhh = taxa_em(historico, dia)
         total += (minutos / 60) * (vhh if local == "home" else vh)
     # dias extras / feriados / bonificações lançados à mão (horas a mais)
-    cur.execute("SELECT data, minutos FROM extras WHERE funcionario_id=%s AND data<=%s", (fid, data_corte))
+    cur.execute("SELECT data, minutos FROM extras WHERE funcionario_id=%s AND COALESCE(mes_ref, data)<=%s", (fid, data_corte))
     for data_e, minutos_e in cur.fetchall():
         total += (minutos_e / 60) * taxa_em(historico, data_e)[0]
     return total
@@ -334,7 +335,7 @@ def saldos_em_lote(cur, ids, data_corte):
         vh, vhh = taxa_em(historicos.get(fid, []), dia)
         trabalhado[fid] += (minutos / 60) * (vhh if local == "home" else vh)
 
-    cur.execute("SELECT funcionario_id, data, minutos FROM extras WHERE funcionario_id = ANY(%s) AND data<=%s",
+    cur.execute("SELECT funcionario_id, data, minutos FROM extras WHERE funcionario_id = ANY(%s) AND COALESCE(mes_ref, data)<=%s",
                 (ids, data_corte))
     for fid, data_e, minutos_e in cur.fetchall():
         trabalhado[fid] += (minutos_e / 60) * taxa_em(historicos.get(fid, []), data_e)[0]
@@ -856,7 +857,7 @@ def extrato_do_mes(cur, fid, ini, fim):
         eventos.append({"tipo": "trabalho", "data": p["dia"], "dia_semana": DIAS[p["dia"].weekday()],
                         "reg": p, "valor": valor_dia})
 
-    cur.execute("SELECT * FROM extras WHERE funcionario_id=%s AND data BETWEEN %s AND %s ORDER BY data, id",
+    cur.execute("SELECT * FROM extras WHERE funcionario_id=%s AND COALESCE(mes_ref, data) BETWEEN %s AND %s ORDER BY data, id",
                 (fid, ini, fim))
     for ex in cur.fetchall():
         valor_e = round((ex["minutos"] / 60) * taxa_em(historico, ex["data"])[0], 2)
@@ -914,19 +915,28 @@ def lancar_adiantamentos():
     except ValueError:
         data_lote = hoje()
     mes_ref_lote = mes_ref_ou_none(request.form.get("mes_ref"))
+    try:
+        data_cred = date.fromisoformat(request.form.get("data_c") or "")
+    except ValueError:
+        data_cred = data_lote
+    mes_ref_cred = mes_ref_ou_none(request.form.get("mes_ref_c"))
+    motivo_cred = (request.form.get("motivo_c") or "").strip()[:120]
     with db() as conn, conn.cursor() as cur:
         cur.execute("SELECT id FROM funcionarios WHERE NOT arquivado")
         for (fid,) in cur.fetchall():
             campo = (request.form.get(f"valor_{fid}") or "").strip()
-            if not campo:
-                continue
-            valor_v = dinheiro(campo)
-            if valor_v <= 0:
-                continue
-            cur.execute(
-                "INSERT INTO adiantamentos (funcionario_id, data, valor_pago, mes_ref) VALUES (%s,%s,%s,%s)",
-                (fid, data_lote, valor_v, mes_ref_lote),
-            )
+            valor_v = dinheiro(campo) if campo else 0
+            if valor_v > 0:
+                cur.execute(
+                    "INSERT INTO adiantamentos (funcionario_id, data, valor_pago, mes_ref) VALUES (%s,%s,%s,%s)",
+                    (fid, data_lote, valor_v, mes_ref_lote),
+                )
+            minutos_c = horas_para_minutos(request.form.get(f"horas_{fid}"))
+            if minutos_c:
+                cur.execute(
+                    "INSERT INTO extras (funcionario_id, data, motivo, minutos, mes_ref) VALUES (%s,%s,%s,%s,%s)",
+                    (fid, data_cred, motivo_cred, minutos_c, mes_ref_cred),
+                )
     return redirect(url_for("adiantamentos"))
 
 
@@ -989,8 +999,8 @@ def incluir_extra():
         else:
             ids = [int(request.form["funcionario_id"])]
         for fid in ids:
-            cur.execute("INSERT INTO extras (funcionario_id, data, motivo, minutos) VALUES (%s,%s,%s,%s)",
-                        (fid, data_e, motivo, minutos))
+            cur.execute("INSERT INTO extras (funcionario_id, data, motivo, minutos, mes_ref) VALUES (%s,%s,%s,%s,%s)",
+                        (fid, data_e, motivo, minutos, mes_ref_ou_none(request.form.get("mes_ref"))))
     return redirect(voltar)
 
 
@@ -1005,8 +1015,9 @@ def salvar_extra(eid):
     minutos = horas_para_minutos(request.form.get("horas"))
     if minutos:
         with db() as conn, conn.cursor() as cur:
-            cur.execute("UPDATE extras SET data=%s, motivo=%s, minutos=%s WHERE id=%s",
-                        (data_e, (request.form.get("motivo") or "").strip()[:120], minutos, eid))
+            cur.execute("UPDATE extras SET data=%s, motivo=%s, minutos=%s, mes_ref=%s WHERE id=%s",
+                        (data_e, (request.form.get("motivo") or "").strip()[:120], minutos,
+                         mes_ref_ou_none(request.form.get("mes_ref")), eid))
     return redirect(voltar)
 
 

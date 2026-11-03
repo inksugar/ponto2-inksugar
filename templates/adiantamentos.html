@@ -6,36 +6,56 @@
 {% block conteudo %}
 
 <h1>Gestão</h1>
-<p class="sub">Saldo = valor trabalhado acumulado − valor já pago. Contínuo entre meses, pode ficar negativo. Clica no nome pra abrir o extrato completo dela numa aba nova.</p>
+<p class="sub">Saldo = valor trabalhado acumulado − valor já pago. Contínuo entre meses, pode ficar negativo. Clica na foto pra abrir o extrato completo dela numa aba nova.</p>
+
 
 <div class="card">
-  <h2>Lançar pagamento da semana</h2>
-  <p class="mini" style="margin-top:-8px">Sugestão: até 40h do valor da hora de cada uma, limitado ao saldo disponível. Ajuste como quiser antes de lançar — deixe em branco ou zero pra não lançar nada pra alguém.</p>
   <form method="post" action="/ponto2/admin/adiantamentos/lancar">
-    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
-      <div style="max-width:220px">
-        <label for="data">Data do lançamento</label>
-        <input id="data" name="data" type="date" value="{{ hoje }}" required>
+    <div class="duas-colunas">
+      <div>
+        <h2>Adiantamentos</h2>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:150px">
+            <label for="data">Data</label>
+            <input id="data" name="data" type="date" value="{{ hoje }}" required>
+          </div>
+          <div style="flex:1;min-width:150px">
+            <label for="mes_ref">Mês ref. <span class="mini">(opcional)</span></label>
+            <input id="mes_ref" name="mes_ref" type="month" title="Preenche só se for referente a um mês diferente da data">
+          </div>
+        </div>
       </div>
-      <div style="max-width:180px">
-        <label for="mes_ref">Mês ref. <span class="mini">(opcional)</span></label>
-        <input id="mes_ref" name="mes_ref" type="month" title="Preenche só se for referente a um mês diferente da data">
+      <div>
+        <h2>Bônus / Feriados</h2>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:150px">
+            <label for="data_c">Data</label>
+            <input id="data_c" name="data_c" type="date" value="{{ hoje }}" required>
+          </div>
+          <div style="flex:1;min-width:150px">
+            <label for="mes_ref_c">Mês ref. <span class="mini">(opcional)</span></label>
+            <input id="mes_ref_c" name="mes_ref_c" type="month" title="Preenche só se for referente a um mês diferente da data">
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <label for="motivo_c">Referência</label>
+          <input id="motivo_c" name="motivo_c" placeholder="Ex.: Feriado 15/11, bônus meta">
+        </div>
       </div>
-    </div>
 
-    <div class="tab-reg">
-      <div class="linha-reg cab" style="grid-template-columns:1fr 120px 140px">
-        <span>Funcionário</span><span>Saldo atual</span><span>Valor pago (R$)</span>
-      </div>
       {% for l in linhas %}
-      <div class="linha-reg" style="grid-template-columns:1fr 120px 140px">
-        <a href="/ponto2/ponto/{{ l.f.id }}/mes" target="_blank" rel="noopener"
-           title="Abrir extrato completo dela numa aba nova"
-           style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit">
-          {{ avatar(l.f, 'sm') }} {{ l.f.nome }} <span class="mini">↗</span>
+      <div class="linha-gestao">
+        <a href="/ponto2/ponto/{{ l.f.id }}/mes" target="_blank" rel="noopener" title="{{ l.f.nome }} — abrir extrato" style="text-decoration:none">
+          {{ avatar(l.f, 'sm') }}
         </a>
-        <span class="num" style="{% if l.saldo < 0 %}color:var(--vermelho){% endif %}">{{ brl(l.saldo) }}</span>
-        <input name="valor_{{ l.f.id }}" type="number" min="0" step="any" value="{{ l.sugestao if l.sugestao else '' }}" placeholder="0,00">
+        <span class="num" title="Saldo atual" style="margin-left:auto;{% if l.saldo < 0 %}color:var(--vermelho){% endif %}">{{ brl(l.saldo) }}</span>
+        <input name="valor_{{ l.f.id }}" type="number" min="0" step="any" value="{{ l.sugestao if l.sugestao else '' }}" placeholder="R$ 0,00" style="width:120px" title="Valor pago (R$)">
+      </div>
+      <div class="linha-gestao">
+        <a href="/ponto2/ponto/{{ l.f.id }}/mes" target="_blank" rel="noopener" title="{{ l.f.nome }} — abrir extrato" style="text-decoration:none">
+          {{ avatar(l.f, 'sm') }}
+        </a>
+        <input name="horas_{{ l.f.id }}" placeholder="horas (ex.: 8 ou 8:30)" style="margin-left:auto;width:170px" title="Horas de crédito">
       </div>
       {% else %}
       <p class="mini">Ninguém cadastrado ainda.</p>
@@ -43,9 +63,15 @@
     </div>
 
     {% if linhas %}
-    <button class="btn verde" type="submit" style="margin-top:16px">Lançar pagamentos</button>
+    <button class="btn verde" type="submit" style="margin-top:16px">Lançar pagamentos / créditos</button>
     {% endif %}
   </form>
 </div>
+
+<style>
+  .duas-colunas{display:grid;grid-template-columns:1fr 1fr;gap:0 40px}
+  .linha-gestao{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--linha)}
+  @media (max-width:760px){.duas-colunas{grid-template-columns:1fr}}
+</style>
 
 {% endblock %}

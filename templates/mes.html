@@ -117,6 +117,44 @@
     {{ quinzena_tabela('1ª quinzena', primeira) }}
     {{ quinzena_tabela('2ª quinzena', segunda) }}
   </div>
+  {% if is_admin or extras_mes %}
+  <div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--linha)">
+    <h3 style="font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fraco);margin:0 0 6px;font-weight:500">Dias extras / Feriados / Bônus</h3>
+    {% for e in extras_mes %}
+      {% if is_admin %}
+      <form method="post" action="/ponto2/admin/extra/{{ e.reg.id }}" class="linha-pago-edit">
+        <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
+        <input name="data" type="date" value="{{ e.reg.data }}">
+        <input name="mes_ref" type="month" value="{{ e.reg.mes_ref.strftime('%Y-%m') if e.reg.mes_ref else '' }}" title="Mês de referência (opcional)" style="width:130px">
+        <input name="motivo" value="{{ e.reg.motivo }}" placeholder="referência" style="flex:1;min-width:140px">
+        <input name="horas" value="{{ '%d:%02d' % (e.reg.minutos // 60, e.reg.minutos % 60) }}" style="width:70px" title="horas (ex.: 8 ou 8:30)">
+        <span class="mini">{{ brl(e.valor) }}</span>
+        <button class="btn claro" type="submit" style="width:auto;margin:0;padding:8px 12px">Salvar</button>
+        <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/extra/{{ e.reg.id }}/excluir"
+                style="width:auto;margin:0;padding:8px 12px"
+                onclick="return confirm('Excluir este lançamento de {{ f.nome }}?')">Excluir</button>
+      </form>
+      {% else %}
+      <div class="linha-pago-edit">
+        <span>{{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }} · {{ e.reg.motivo }}</span>
+        <b style="margin-left:auto">{{ hm(e.reg.minutos) }} · {{ brl(e.valor) }}</b>
+      </div>
+      {% endif %}
+    {% endfor %}
+    {% if is_admin %}
+    <form method="post" action="/ponto2/admin/extra" class="linha-pago-edit noprint">
+      <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
+      <input type="hidden" name="funcionario_id" value="{{ f.id }}">
+      <input name="data" type="date" required>
+      <input name="mes_ref" type="month" title="Mês de referência (opcional)" style="width:130px">
+      <input name="motivo" placeholder="referência" style="flex:1;min-width:140px">
+      <input name="horas" placeholder="horas" required style="width:70px" title="horas (ex.: 8 ou 8:30)">
+      <label class="mini quadro" style="margin:0"><input type="checkbox" name="todas"> todas</label>
+      <button class="btn verde" type="submit" style="width:auto;margin:0;padding:8px 12px">Incluir</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
   {% if is_admin %}
   <button form="pontosForm" class="btn verde noprint" type="submit" style="margin-top:16px">Salvar horários do mês</button>
   {% endif %}
@@ -154,42 +192,6 @@
   {% endif %}
 </div>
 
-{% if is_admin or extras_mes %}
-<div class="card">
-  <h2>Dias extras / Feriados</h2>
-  {% for e in extras_mes %}
-    {% if is_admin %}
-    <form method="post" action="/ponto2/admin/extra/{{ e.reg.id }}" class="linha-pago-edit">
-      <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
-      <input name="data" type="date" value="{{ e.reg.data }}">
-      <input name="motivo" value="{{ e.reg.motivo }}" placeholder="motivo" style="flex:1;min-width:140px">
-      <input name="horas" value="{{ '%d:%02d' % (e.reg.minutos // 60, e.reg.minutos % 60) }}" style="width:70px" title="horas (ex.: 8 ou 8:30)">
-      <span class="mini">{{ brl(e.valor) }}</span>
-      <button class="btn claro" type="submit" style="width:auto;margin:0;padding:8px 12px">Salvar</button>
-      <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/extra/{{ e.reg.id }}/excluir"
-              style="width:auto;margin:0;padding:8px 12px"
-              onclick="return confirm('Excluir este lançamento de {{ f.nome }}?')">Excluir</button>
-    </form>
-    {% else %}
-    <div class="linha-pago-edit">
-      <span>{{ e.data.strftime('%d/%m') }} {{ e.dia_semana[:3] }} · {{ e.reg.motivo }}</span>
-      <b style="margin-left:auto">{{ hm(e.reg.minutos) }} · {{ brl(e.valor) }}</b>
-    </div>
-    {% endif %}
-  {% endfor %}
-  {% if is_admin %}
-  <form method="post" action="/ponto2/admin/extra" class="linha-pago-edit noprint">
-    <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
-    <input type="hidden" name="funcionario_id" value="{{ f.id }}">
-    <input name="data" type="date" required>
-    <input name="motivo" placeholder="motivo" style="flex:1;min-width:140px">
-    <input name="horas" placeholder="horas" required style="width:70px" title="horas (ex.: 8 ou 8:30)">
-    <label class="mini quadro" style="margin:0"><input type="checkbox" name="todas"> todas</label>
-    <button class="btn verde" type="submit" style="width:auto;margin:0;padding:8px 12px">Incluir</button>
-  </form>
-  {% endif %}
-</div>
-{% endif %}
 
 {% if not is_admin %}
 <a class="btn claro noprint" href="/ponto2/ponto/{{ f.id }}">Voltar</a>
