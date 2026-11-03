@@ -107,6 +107,12 @@ def init_db():
             ALTER TABLE adiantamentos ADD COLUMN IF NOT EXISTS valor_pago NUMERIC(10,2);
             ALTER TABLE adiantamentos ALTER COLUMN minutos DROP NOT NULL;
             ALTER TABLE adiantamentos ALTER COLUMN minutos DROP DEFAULT;
+            CREATE TABLE IF NOT EXISTS feriados (
+                id SERIAL PRIMARY KEY,
+                data DATE NOT NULL UNIQUE,
+                nome TEXT NOT NULL DEFAULT 'Feriado',
+                minutos INTEGER NOT NULL DEFAULT 480
+            );
         """)
 
 
@@ -265,6 +271,11 @@ def valor_trabalhado_ate(cur, fid, data_corte, historico=None):
     for dia, minutos, local in cur.fetchall():
         vh, vhh = taxa_em(historico, dia)
         total += (minutos / 60) * (vhh if local == "home" else vh)
+    # feriado nacional: todas recebem o dia normalmente (8h por padrão); se
+    # trabalharem, as horas do ponto entram por cima, como extra
+    cur.execute("SELECT data, minutos FROM feriados WHERE data<=%s", (data_corte,))
+    for data_f, minutos_f in cur.fetchall():
+        total += (minutos_f / 60) * taxa_em(historico, data_f)[0]
     return total
 
 
@@ -320,6 +331,12 @@ def saldos_em_lote(cur, ids, data_corte):
     for fid, dia, minutos, local in cur.fetchall():
         vh, vhh = taxa_em(historicos.get(fid, []), dia)
         trabalhado[fid] += (minutos / 60) * (vhh if local == "home" else vh)
+
+    cur.execute("SELECT data, minutos FROM feriados WHERE data<=%s", (data_corte,))
+    feriados = cur.fetchall()
+    for fid in ids:
+        for data_f, minutos_f in feriados:
+            trabalhado[fid] += (minutos_f / 60) * taxa_em(historicos.get(fid, []), data_f)[0]
 
     cur.execute("""
         SELECT funcionario_id, data, minutos, valor_pago FROM adiantamentos
@@ -481,8 +498,10 @@ def mes_pessoa(fid):
     primeira = [l for l in linhas_completas if l["data"].day <= 15]
     segunda = [l for l in linhas_completas if l["data"].day > 15]
     pagamentos = [e for e in eventos if e["tipo"] == "adiantamento"]
+    feriados_mes = {e["data"]: e for e in eventos if e["tipo"] == "feriado"}
 
     return render_template("mes.html", f=f, primeira=primeira, segunda=segunda, pagamentos=pagamentos,
+                           feriados_mes=feriados_mes,
                            n_trabalho=len(linhas_completas), ini=ini, fim=fim, nome_mes=nome_mes,
                            trabalhadas=trabalhadas, valor_trabalhado=valor_trabalhado,
                            valor_pago=valor_pago, falta_mes=falta_mes, saldo=saldo,
@@ -836,6 +855,14 @@ def extrato_do_mes(cur, fid, ini, fim):
         eventos.append({"tipo": "trabalho", "data": p["dia"], "dia_semana": DIAS[p["dia"].weekday()],
                         "reg": p, "valor": valor_dia})
 
+    cur.execute("SELECT * FROM feriados WHERE data BETWEEN %s AND %s ORDER BY data", (ini, fim))
+    for fer in cur.fetchall():
+        valor_f = round((fer["minutos"] / 60) * taxa_em(historico, fer["data"])[0], 2)
+        if valor_f:
+            valor_trabalhado += valor_f
+            eventos.append({"tipo": "feriado", "data": fer["data"], "dia_semana": DIAS[fer["data"].weekday()],
+                            "reg": fer, "valor": valor_f})
+
     valor_pago = 0.0
     for a in adiant_periodo:
         if a["valor_pago"] is not None:
@@ -875,7 +902,9 @@ def adiantamentos():
                 teto_40h = round(40 * vh, 2)
                 sugestao = min(saldo, teto_40h) if saldo > 0 else 0
             linhas.append({"f": f, "saldo": saldo, "sugestao": sugestao})
-    return render_template("adiantamentos.html", linhas=linhas, hoje=hj)
+        cur.execute("SELECT * FROM feriados WHERE data >= %s ORDER BY data", (date(hj.year, 1, 1),))
+        feriados = cur.fetchall()
+    return render_template("adiantamentos.html", linhas=linhas, hoje=hj, feriados=feriados)
 
 
 @app.route("/ponto2/admin/adiantamentos/lancar", methods=["POST"])
@@ -926,6 +955,31 @@ def excluir_adiantamento(aid):
     with db() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM adiantamentos WHERE id=%s", (aid,))
     return redirect(voltar or url_for("adiantamentos"))
+
+
+@app.route("/ponto2/admin/feriado", methods=["POST"])
+@admin_only
+def incluir_feriado():
+    try:
+        data_f = date.fromisoformat(request.form.get("data") or "")
+    except ValueError:
+        return redirect(url_for("adiantamentos"))
+    nome = (request.form.get("nome") or "").strip() or "Feriado"
+    with db() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO feriados (data, nome) VALUES (%s, %s) "
+            "ON CONFLICT (data) DO UPDATE SET nome=EXCLUDED.nome",
+            (data_f, nome),
+        )
+    return redirect(url_for("adiantamentos"))
+
+
+@app.route("/ponto2/admin/feriado/<int:fid>/excluir", methods=["POST"])
+@admin_only
+def excluir_feriado(fid):
+    with db() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM feriados WHERE id=%s", (fid,))
+    return redirect(url_for("adiantamentos"))
 
 
 # ---------------- Alertas no WhatsApp ----------------

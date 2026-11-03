@@ -79,6 +79,7 @@
     {% for l in linhas %}
     <tr>
       <td>{{ l.data.strftime('%d/%m') }} {{ l.dia[:3] }}{% if l.reg and l.reg.local == 'home' %} <span class="mini">· home</span>{% endif %}
+        {% if l.data in feriados_mes %}<span class="mini" style="color:var(--amarelo)" title="{{ brl(feriados_mes[l.data].valor) }}">· {{ feriados_mes[l.data].reg.nome }} +{{ hm(feriados_mes[l.data].reg.minutos) }}</span>{% endif %}
         {% if is_admin %}
         <input type="hidden" form="pontosForm" name="dia_{{ l.idx }}" value="{{ l.data }}">
         {% if l.reg %}<input type="hidden" form="pontosForm" name="id_{{ l.idx }}" value="{{ l.reg.id }}">{% endif %}
@@ -201,6 +202,19 @@
       <td style="border:1px solid #bbb;padding:4px 8px;text-align:right">{{ hm(trabalhadas) }}</td>
     </tr>
   </table>
+
+  {% if feriados_mes %}
+  <div style="font-weight:bold;margin-bottom:6px">Feriados (pagos normalmente; se trabalhou, as horas acima são extra)</div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+    {% for d, e in feriados_mes.items() %}
+    <tr>
+      <td style="border:1px solid #ddd;padding:3px 8px">{{ d.strftime('%d/%m') }} {{ e.dia_semana[:3] }}</td>
+      <td style="border:1px solid #ddd;padding:3px 8px">{{ e.reg.nome }}</td>
+      <td style="border:1px solid #ddd;padding:3px 8px;text-align:right">{{ hm(e.reg.minutos) }} · {{ brl(e.valor) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
 
   <div style="font-weight:bold;margin-bottom:6px">Adiantamentos / pagamentos</div>
   <table style="width:100%;border-collapse:collapse">
