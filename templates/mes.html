@@ -132,11 +132,11 @@
         <form method="post" action="/ponto2/admin/adiantamento/{{ e.reg.id }}" class="linha-pago-edit">
           <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
           <input type="hidden" name="obs" value="{{ e.reg.obs or '' }}">
-          <input name="data" type="date" value="{{ e.reg.data }}" style="width:150px">
-          <input name="valor" type="number" min="0" step="any" value="{{ e.valor }}" style="width:100px" title="Valor (R$)">
+          <input name="data" type="date" value="{{ e.reg.data }}" style="width:128px;padding-left:8px;padding-right:4px">
+          <input name="valor" type="number" min="0" step="any" value="{{ e.valor }}" style="width:80px" title="Valor (R$)">
           <input name="mes_ref" type="month" value="{{ e.reg.mes_ref.strftime('%Y-%m') if e.reg.mes_ref else '' }}"
-                 title="Mês de referência (opcional)" style="width:140px">
-          <button class="btn claro" type="submit" style="width:auto;margin:0;padding:8px 12px">Salvar</button>
+                 title="Mês de referência (opcional)" style="width:120px;padding-left:8px;padding-right:4px">
+          <button class="btn claro" type="submit" style="width:auto;margin:0;padding:8px 9px">Salvar</button>
           <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/adiantamento/{{ e.reg.id }}/excluir"
                   title="Excluir" style="width:auto;margin:0;padding:8px 10px"
                   onclick="return confirm('Excluir este pagamento de {{ f.nome }}?')">🗑️</button>
@@ -159,13 +159,13 @@
         {% if is_admin %}
         <form method="post" action="/ponto2/admin/extra/{{ e.reg.id }}" class="linha-pago-edit">
           <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
-          <input name="data" type="date" value="{{ e.reg.data }}" style="width:150px">
-          <input name="horas" value="{{ '%d:%02d' % (e.reg.minutos // 60, e.reg.minutos % 60) }}" style="width:70px" title="Horas (ex.: 8 ou 8:30)">
+          <input name="data" type="date" value="{{ e.reg.data }}" style="width:128px;padding-left:8px;padding-right:4px">
+          <input name="horas" value="{{ '%d:%02d' % (e.reg.minutos // 60, e.reg.minutos % 60) }}" style="width:60px" title="Horas (ex.: 8 ou 8:30)">
           <input name="mes_ref" type="month" value="{{ e.reg.mes_ref.strftime('%Y-%m') if e.reg.mes_ref else '' }}"
-                 title="Mês de referência (opcional)" style="width:140px">
+                 title="Mês de referência (opcional)" style="width:120px;padding-left:8px;padding-right:4px">
           <input name="motivo" value="{{ e.reg.motivo }}" placeholder="referência" style="flex:1;min-width:120px">
           <span class="mini">{{ brl(e.valor) }}</span>
-          <button class="btn claro" type="submit" style="width:auto;margin:0;padding:8px 12px">Salvar</button>
+          <button class="btn claro" type="submit" style="width:auto;margin:0;padding:8px 9px">Salvar</button>
           <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/extra/{{ e.reg.id }}/excluir"
                   title="Excluir" style="width:auto;margin:0;padding:8px 10px"
                   onclick="return confirm('Excluir este lançamento de {{ f.nome }}?')">🗑️</button>
