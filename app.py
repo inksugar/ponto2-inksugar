@@ -50,7 +50,7 @@ def db():
     # o banco (Neon) às vezes demora a acordar ou trava a conexão — sem limite,
     # o gunicorn mata o worker (502). Com limite, tenta de novo e segue.
     kw = dict(sslmode="require", connect_timeout=8, keepalives=1, keepalives_idle=10,
-              keepalives_interval=5, keepalives_count=3, options="-c statement_timeout=20000")
+              keepalives_interval=5, keepalives_count=3)
     try:
         conn = psycopg2.connect(DATABASE_URL, **kw)
     except psycopg2.OperationalError:
