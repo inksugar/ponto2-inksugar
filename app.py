@@ -269,6 +269,13 @@ def taxa_em(historico, data_ref):
     return 0.0, 0.0
 
 
+def taxa_credito(historico, data_ref):
+    """Créditos (bônus/feriados) são sempre pagos pela hora de home office —
+    se a pessoa não tem valor de home cadastrado, cai na hora normal."""
+    vh, vhh = taxa_em(historico, data_ref)
+    return vhh or vh
+
+
 def valor_trabalhado_ate(cur, fid, data_corte, historico=None):
     """Soma, em R$, do que foi trabalhado até uma data — cada dia valorizado
     pela taxa vigente naquele dia (interno ou home conforme o local)."""
@@ -285,7 +292,7 @@ def valor_trabalhado_ate(cur, fid, data_corte, historico=None):
     # dias extras / feriados / bonificações lançados à mão (horas a mais)
     cur.execute("SELECT data, minutos FROM extras WHERE funcionario_id=%s AND COALESCE(mes_ref, data)<=%s", (fid, data_corte))
     for data_e, minutos_e in cur.fetchall():
-        total += (minutos_e / 60) * taxa_em(historico, data_e)[0]
+        total += (minutos_e / 60) * taxa_credito(historico, data_e)
     return total
 
 
@@ -345,7 +352,7 @@ def saldos_em_lote(cur, ids, data_corte):
     cur.execute("SELECT funcionario_id, data, minutos FROM extras WHERE funcionario_id = ANY(%s) AND COALESCE(mes_ref, data)<=%s",
                 (ids, data_corte))
     for fid, data_e, minutos_e in cur.fetchall():
-        trabalhado[fid] += (minutos_e / 60) * taxa_em(historicos.get(fid, []), data_e)[0]
+        trabalhado[fid] += (minutos_e / 60) * taxa_credito(historicos.get(fid, []), data_e)
 
     cur.execute("""
         SELECT funcionario_id, data, minutos, valor_pago FROM adiantamentos
@@ -867,7 +874,7 @@ def extrato_do_mes(cur, fid, ini, fim):
     cur.execute("SELECT * FROM extras WHERE funcionario_id=%s AND COALESCE(mes_ref, data) BETWEEN %s AND %s ORDER BY data, id",
                 (fid, ini, fim))
     for ex in cur.fetchall():
-        valor_e = round((ex["minutos"] / 60) * taxa_em(historico, ex["data"])[0], 2)
+        valor_e = round((ex["minutos"] / 60) * taxa_credito(historico, ex["data"]), 2)
         valor_trabalhado += valor_e
         eventos.append({"tipo": "extra", "data": ex["data"], "dia_semana": DIAS[ex["data"].weekday()],
                         "reg": ex, "valor": valor_e})
@@ -1020,9 +1027,11 @@ def salvar_extra(eid):
     minutos = horas_para_minutos(request.form.get("horas"))
     if minutos:
         with db() as conn, conn.cursor() as cur:
-            cur.execute("UPDATE extras SET data=%s, motivo=%s, minutos=%s, mes_ref=%s WHERE id=%s",
-                        (data_e, (request.form.get("motivo") or "").strip()[:120], minutos,
-                         mes_ref_ou_none(request.form.get("mes_ref")), eid))
+            cur.execute("UPDATE extras SET data=%s, motivo=%s, minutos=%s WHERE id=%s",
+                        (data_e, (request.form.get("motivo") or "").strip()[:120], minutos, eid))
+            if "mes_ref" in request.form:
+                cur.execute("UPDATE extras SET mes_ref=%s WHERE id=%s",
+                            (mes_ref_ou_none(request.form.get("mes_ref")), eid))
     return redirect(voltar)
 
 

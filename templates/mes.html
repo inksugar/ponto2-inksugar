@@ -160,10 +160,8 @@
         <form method="post" action="/ponto2/admin/extra/{{ e.reg.id }}" class="linha-pago-edit">
           <input type="hidden" name="voltar" value="/ponto2/ponto/{{ f.id }}/mes?ano={{ ano }}&mes={{ mes }}">
           <input name="data" type="date" value="{{ e.reg.data }}" style="width:118px;padding:8px 4px 8px 8px;font-size:.8rem">
-          <input name="horas" value="{{ '%d:%02d' % (e.reg.minutos // 60, e.reg.minutos % 60) }}" style="width:60px" title="Horas (ex.: 8 ou 8:30)">
-          <input name="mes_ref" type="month" value="{{ e.reg.mes_ref.strftime('%Y-%m') if e.reg.mes_ref else '' }}"
-                 title="Mês de referência (opcional)" style="width:104px;padding:8px 4px 8px 8px;font-size:.8rem">
-          <input name="motivo" value="{{ e.reg.motivo }}" placeholder="referência" style="flex:1;min-width:120px">
+          <input name="horas" value="{{ '%d:%02d' % (e.reg.minutos // 60, e.reg.minutos % 60) }}" style="width:70px" title="Horas (ex.: 8 ou 8:30)">
+          <input name="motivo" value="{{ e.reg.motivo }}" placeholder="referência" style="flex:1;min-width:240px">
           <span class="mini">{{ brl(e.valor) }}</span>
           <button class="btn claro" type="submit" style="width:auto;margin:0;padding:8px 9px">Salvar</button>
           <button class="btn claro apaga" type="submit" formaction="/ponto2/admin/extra/{{ e.reg.id }}/excluir"
@@ -183,7 +181,8 @@
   </div>
 </div>
 <style>
-  .duas-colunas-extrato{display:grid;grid-template-columns:1fr 1fr;gap:0 40px}
+  .duas-colunas-extrato{display:grid;grid-template-columns:max-content 1fr;gap:0 48px}
+  .duas-colunas-extrato > div:last-child .linha-pago-edit{flex-wrap:nowrap}
   .duas-colunas-extrato .linha-pago-edit{gap:6px}
   @media (max-width:900px){.duas-colunas-extrato{grid-template-columns:1fr}}
 </style>
