@@ -962,10 +962,12 @@ def salvar_adiantamento(aid):
         return redirect(voltar or url_for("adiantamentos"))
     valor_v = dinheiro(request.form.get("valor"))
     obs = (request.form.get("obs") or "").strip()[:200]
-    mes_ref_v = mes_ref_ou_none(request.form.get("mes_ref"))
     with db() as conn, conn.cursor() as cur:
-        cur.execute("UPDATE adiantamentos SET data=%s, valor_pago=%s, minutos=NULL, obs=%s, mes_ref=%s WHERE id=%s",
-                    (data_v, valor_v, obs, mes_ref_v, aid))
+        cur.execute("UPDATE adiantamentos SET data=%s, valor_pago=%s, minutos=NULL, obs=%s WHERE id=%s",
+                    (data_v, valor_v, obs, aid))
+        if "mes_ref" in request.form:  # a linha do extrato não tem esse campo — não apaga o que já existe
+            cur.execute("UPDATE adiantamentos SET mes_ref=%s WHERE id=%s",
+                        (mes_ref_ou_none(request.form.get("mes_ref")), aid))
     return redirect(voltar or url_for("adiantamentos"))
 
 
